@@ -28,31 +28,40 @@ def parser(settings):
     return VisionLLMParser()
 
 
-def test_parse_extracts_line_items(parser):
+def test_parse_full_receipt(parser):
     content = """{
-      "store_location": "Costco Scarborough",
-      "purchase_date": "2026-05-01",
+      "store_location": "Markham #151", "store_number": "151",
+      "purchase_date": "2026-06-04",
+      "receipt_number": "22015120500102606040916", "invoice_number": "205663",
       "line_items": [
-        {"raw_name": "KS WATER 40PK", "item_number": "1234567", "quantity": 1, "unit_price": 4.99, "amount": 4.99, "item_type": "product"},
-        {"raw_name": "MEMBERSHIP", "item_number": null, "quantity": 1, "unit_price": 60, "amount": 60, "item_type": "service"}
+        {"raw_name": "X-LIGHT OIL", "item_number": "142372", "quantity": 1, "unit_price": 28.99, "amount": 28.99, "item_type": "product", "taxable": false},
+        {"raw_name": "INSTANT SAVINGS", "item_number": "207SE40", "quantity": 1, "unit_price": -6.0, "amount": -6.0, "item_type": "discount", "taxable": false},
+        {"raw_name": "NEOFLAM 12PC", "item_number": "8523320Z", "quantity": 1, "unit_price": 29.99, "amount": 29.99, "item_type": "product", "taxable": true},
+        {"raw_name": "MEMBERSHIP", "item_number": null, "quantity": 1, "unit_price": 60, "amount": 60, "item_type": "service", "taxable": false}
       ]
     }"""
     with patch.object(parser._client.chat.completions, "create", return_value=_fake_completion(content)):
-        result = parser.parse(b"fakeimagebytes")
-    assert isinstance(result, StructuredReceipt)
-    assert result.store_location == "Costco Scarborough"
-    assert result.purchase_date == "2026-05-01"
-    assert len(result.line_items) == 2
-    assert result.line_items[0].item_number == "1234567"
-    assert result.line_items[0].unit_price == Decimal("4.99")
-    assert result.line_items[1].item_type == "service"
+        r = parser.parse(b"\xff\xd8fakejpeg")
+    assert isinstance(r, StructuredReceipt)
+    assert r.store_location == "Markham #151"
+    assert r.store_number == "151"
+    assert r.receipt_number == "22015120500102606040916"
+    assert r.invoice_number == "205663"
+    assert len(r.line_items) == 4
+    # alphanumeric item_number preserved
+    assert r.line_items[1].item_number == "207SE40"
+    # discount: negative amount + item_type
+    assert r.line_items[1].item_type == "discount"
+    assert r.line_items[1].amount == Decimal("-6.0")
+    # taxable flag carried through
+    assert r.line_items[2].taxable is True
+    assert r.line_items[3].item_type == "service"
 
 
 def test_parse_tolerates_prose_and_fences(parser):
     content = 'Here is the result:\n```json\n{"line_items": []}\n```\nDone.'
     with patch.object(parser._client.chat.completions, "create", return_value=_fake_completion(content)):
-        result = parser.parse(b"x")
-    assert result.line_items == []
+        assert parser.parse(b"x").line_items == []
 
 
 def test_parse_raises_when_no_json(parser):
@@ -62,8 +71,8 @@ def test_parse_raises_when_no_json(parser):
 
 
 def test_unparseable_price_becomes_none(parser):
-    content = '{"line_items": [{"raw_name": "ODD", "unit_price": "N/A", "amount": null}]}'
+    content = '{"line_items": [{"raw_name": "ODD", "unit_price": "N/A", "amount": null, "item_type": "product"}]}'
     with patch.object(parser._client.chat.completions, "create", return_value=_fake_completion(content)):
-        result = parser.parse(b"x")
-    assert result.line_items[0].unit_price is None
-    assert result.line_items[0].item_type == "product"
+        li = parser.parse(b"x").line_items[0]
+    assert li.unit_price is None
+    assert li.item_type == "product"

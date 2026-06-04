@@ -1,6 +1,8 @@
 """Vision-LLM receipt parser — calls a self-hosted OpenAI-compatible endpoint.
 
 Endpoint / model / key all come from env (RECEIPT_LLM_*); nothing is hardcoded.
+PDF receipts are rendered to PNG (page 1) before sending. OCR is imperfect, so
+the result is always subject to user review before it is trusted.
 """
 
 from __future__ import annotations
@@ -18,6 +20,8 @@ from .prompts import RECEIPT_EXTRACTION_PROMPT
 
 logger = logging.getLogger(__name__)
 
+_VALID_TYPES = {"product", "service", "discount"}
+
 
 class VisionLLMParser(ReceiptParser):
     def __init__(self) -> None:
@@ -28,27 +32,38 @@ class VisionLLMParser(ReceiptParser):
         )
         self._model = settings.RECEIPT_LLM_MODEL
 
-    def parse(self, image_bytes: bytes, *, content_type: str = "image/jpeg") -> StructuredReceipt:
-        data_uri = f"data:{content_type};base64," + base64.b64encode(image_bytes).decode()
+    def parse(self, file_bytes: bytes, *, content_type: str = "image/jpeg") -> StructuredReceipt:
+        png, mime = self._ensure_image(file_bytes, content_type)
+        data_uri = f"data:{mime};base64," + base64.b64encode(png).decode()
         resp = self._client.chat.completions.create(
             model=self._model,
-            messages=[
-                {
-                    "role": "user",
-                    "content": [
-                        {"type": "text", "text": RECEIPT_EXTRACTION_PROMPT},
-                        {"type": "image_url", "image_url": {"url": data_uri}},
-                    ],
-                }
-            ],
+            messages=[{"role": "user", "content": [
+                {"type": "text", "text": RECEIPT_EXTRACTION_PROMPT},
+                {"type": "image_url", "image_url": {"url": data_uri}},
+            ]}],
             max_tokens=2048,
             temperature=0,
             # This model ships a "thinking" mode that spends tokens on
-            # `reasoning_content`; disable it so JSON comes back in `content`.
+            # reasoning_content; disable it so JSON comes back in `content`.
             extra_body={"chat_template_kwargs": {"enable_thinking": False}},
         )
         content = (resp.choices[0].message.content or "").strip()
         return self._to_structured(self._extract_json(content))
+
+    @staticmethod
+    def _ensure_image(file_bytes: bytes, content_type: str) -> tuple[bytes, str]:
+        """Render a PDF (page 1) to PNG; pass images through unchanged."""
+        is_pdf = content_type == "application/pdf" or file_bytes[:5] == b"%PDF-"
+        if not is_pdf:
+            return file_bytes, content_type
+        import fitz  # PyMuPDF
+
+        doc = fitz.open(stream=file_bytes, filetype="pdf")
+        try:
+            pix = doc.load_page(0).get_pixmap(dpi=200)
+            return pix.tobytes("png"), "image/png"
+        finally:
+            doc.close()
 
     @staticmethod
     def _extract_json(content: str) -> dict:
@@ -60,23 +75,34 @@ class VisionLLMParser(ReceiptParser):
 
     @classmethod
     def _to_structured(cls, data: dict) -> StructuredReceipt:
-        items = [
-            StructuredLineItem(
+        items = []
+        for raw in data.get("line_items", []):
+            it = raw.get("item_type")
+            items.append(StructuredLineItem(
                 raw_name=str(raw.get("raw_name", "")).strip(),
-                item_number=str(raw["item_number"]).strip() if raw.get("item_number") else None,
+                item_number=cls._str(raw.get("item_number")),
                 quantity=int(raw.get("quantity") or 1),
                 unit_price=cls._dec(raw.get("unit_price")),
                 amount=cls._dec(raw.get("amount")),
-                item_type="service" if raw.get("item_type") == "service" else "product",
-            )
-            for raw in data.get("line_items", [])
-        ]
+                item_type=it if it in _VALID_TYPES else "product",
+                taxable=bool(raw.get("taxable")),
+            ))
         return StructuredReceipt(
-            store_location=data.get("store_location") or None,
-            purchase_date=data.get("purchase_date") or None,
+            store_location=cls._str(data.get("store_location")),
+            store_number=cls._str(data.get("store_number")),
+            purchase_date=cls._str(data.get("purchase_date")),
+            receipt_number=cls._str(data.get("receipt_number")),
+            invoice_number=cls._str(data.get("invoice_number")),
             line_items=items,
             raw=data,
         )
+
+    @staticmethod
+    def _str(v) -> str | None:
+        if v is None:
+            return None
+        s = str(v).strip()
+        return s or None
 
     @staticmethod
     def _dec(value) -> Decimal | None:

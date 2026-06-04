@@ -18,13 +18,17 @@ class StructuredLineItem:
     quantity: int = 1
     unit_price: Decimal | None = None
     amount: Decimal | None = None
-    item_type: str = "product"  # "product" | "service"
+    item_type: str = "product"  # "product" | "service" | "discount"
+    taxable: bool = False
 
 
 @dataclass
 class StructuredReceipt:
     store_location: str | None = None
+    store_number: str | None = None
     purchase_date: str | None = None  # ISO "YYYY-MM-DD" if parseable
+    receipt_number: str | None = None  # bottom barcode number (dedup / return ref)
+    invoice_number: str | None = None
     line_items: list[StructuredLineItem] = field(default_factory=list)
     raw: dict = field(default_factory=dict)  # original model JSON, kept for review
 
