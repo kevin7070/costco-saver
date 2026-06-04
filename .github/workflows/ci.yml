@@ -30,17 +30,16 @@ jobs:
     runs-on: ubuntu-latest
 
     services:
-      # Postgres reachable from the job container via the docker bridge
-      # service alias `postgres` (Gitea Actions assigns the service name
-      # as the hostname inside the inter-container network). We deliberately
-      # DO NOT publish 5432 to the host — the runner host may already have
-      # postgres bound (e.g. another concurrent CI job), and the bind would
-      # fail with "address already in use". Cross-container DNS handles it.
+      # Postgres service container. The job runs directly on the runner VM
+      # (no container:), so the service port is published to the host and
+      # reached via localhost — the service name is not DNS-resolvable here.
       postgres:
         image: postgres:16
         env:
           POSTGRES_PASSWORD: postgres
           POSTGRES_DB: test_db
+        ports:
+          - 5432:5432
         options: >-
           --health-cmd pg_isready
           --health-interval 10s
@@ -70,11 +69,8 @@ jobs:
 
       - name: Run tests with coverage
         env:
-          # Hostname `postgres` resolves to the service container's IP on
-          # the docker bridge network. Do not use `localhost` here — that
-          # would require publishing the service's host port (see comment
-          # on the postgres service above for why we don't).
-          DATABASE_URL: postgres://postgres:postgres@postgres:5432/test_db
+          # Service port is published to the runner host, so reach it via localhost.
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
           SECRET_KEY: ci-test-secret-key
           JWT_SIGNING_KEY: ci-test-jwt-key
         run: make test
