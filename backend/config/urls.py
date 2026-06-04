@@ -11,6 +11,7 @@ urlpatterns = [
     # API v1
     path("api/v1/auth/", include("apps.users.urls", namespace="auth")),
     path("api/v1/items/", include("apps.items.urls", namespace="items")),
+    path("api/v1/", include("apps.receipts.urls")),
 ]
 
 if settings.DEBUG:
