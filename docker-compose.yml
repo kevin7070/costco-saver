@@ -1,0 +1,81 @@
+# costco-saver demo stack.
+# Versions pinned major.minor to match OVH prod (PostgreSQL 15).
+# One backend image, four roles: web / worker / receipt-worker / beat.
+# Apache vhost reverse-proxies the published frontend port (see deploy notes).
+name: costco-saver
+
+services:
+  db:
+    image: postgres:15
+    environment:
+      POSTGRES_DB: ${DB_NAME:-costco_saver}
+      POSTGRES_USER: ${DB_USER:-costco_saver}
+      POSTGRES_PASSWORD: ${DB_PASSWORD:-costco_saver_dev}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U ${DB_USER:-costco_saver}"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+    restart: unless-stopped
+
+  redis:
+    image: redis:7
+    restart: unless-stopped
+
+  web:
+    build: ./backend
+    env_file: ./backend/.env
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_started
+    command: >
+      sh -c "python manage.py migrate &&
+             python manage.py collectstatic --noinput &&
+             gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    restart: unless-stopped
+
+  worker:
+    build: ./backend
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+    command: celery -A config worker -Q default -c 2 -l info
+    restart: unless-stopped
+
+  receipt-worker:
+    build: ./backend
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+    # Single concurrency — vision LLM endpoint handles one job at a time
+    command: celery -A config worker -Q receipt_parse -c 1 -l info
+    restart: unless-stopped
+
+  beat:
+    build: ./backend
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+    command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    restart: unless-stopped
+
+  frontend:
+    build: ./frontend
+    environment:
+      DJANGO_API_URL: http://web:8000
+    depends_on:
+      - web
+    # Apache vhost proxies to this; bind to LAN IP/port via env on the office box
+    ports:
+      - "${WEB_BIND:-127.0.0.1}:${WEB_PORT:-8101}:3000"
+    restart: unless-stopped
+
+volumes:
+  pgdata:

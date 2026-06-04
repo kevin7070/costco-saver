@@ -1,0 +1,105 @@
+# costco-saver CI Pipeline
+#
+# Backend job invokes Makefile targets — Makefile is the single source of
+# truth for the gate definition. Adding a guard to `make check` (e.g.
+# check-no-google-fonts, future custom guards) automatically gates CI
+# without needing to also edit this file. Frontend job stays inline so we
+# can express explicit npm cache config (cache-dependency-path).
+#
+# Runs on every PR targeting main and on push to main.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+# Auto-cancel any in-progress run for the same ref (branch or PR) when a new
+# event arrives. Prevents queue pile-up from rapid pushes; PR runs and the
+# eventual push-to-main run live in different groups so they do not cancel
+# each other.
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  backend:
+    name: Backend Tests
+    runs-on: ubuntu-latest
+
+    services:
+      # Postgres reachable from the job container via the docker bridge
+      # service alias `postgres` (Gitea Actions assigns the service name
+      # as the hostname inside the inter-container network). We deliberately
+      # DO NOT publish 5432 to the host — the runner host may already have
+      # postgres bound (e.g. another concurrent CI job), and the bind would
+      # fail with "address already in use". Cross-container DNS handles it.
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: test_db
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install deps
+        working-directory: backend
+        run: |
+          python -m venv .venv
+          .venv/bin/pip install --upgrade pip
+          .venv/bin/pip install -r requirements.txt
+
+      # All gate steps below invoke Makefile targets so the gate definition
+      # stays in the Makefile, not split across CI and local. Add guards
+      # to `make check` and they auto-gate CI without editing this file.
+      - name: Verify no third-party Google Fonts CDN references
+        run: make check-no-google-fonts
+
+      - name: Run tests with coverage
+        env:
+          # Hostname `postgres` resolves to the service container's IP on
+          # the docker bridge network. Do not use `localhost` here — that
+          # would require publishing the service's host port (see comment
+          # on the postgres service above for why we don't).
+          DATABASE_URL: postgres://postgres:postgres@postgres:5432/test_db
+          SECRET_KEY: ci-test-secret-key
+          JWT_SIGNING_KEY: ci-test-jwt-key
+        run: make test
+
+  frontend:
+    name: Frontend Build
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+          cache-dependency-path: frontend/package-lock.json
+
+      - name: Install deps
+        working-directory: frontend
+        run: npm ci
+
+      - name: Build
+        working-directory: frontend
+        env:
+          NODE_OPTIONS: "--max-old-space-size=4096"
+        run: npm run build
+        timeout-minutes: 10

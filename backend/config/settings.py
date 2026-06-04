@@ -1,0 +1,235 @@
+"""Django settings for costco-saver."""
+
+import os
+from datetime import timedelta
+from pathlib import Path
+
+from dotenv import load_dotenv
+
+BASE_DIR = Path(__file__).resolve().parent.parent
+
+load_dotenv(BASE_DIR / ".env")
+
+# =============================================================================
+# Core Django
+# =============================================================================
+
+SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-change-me")
+DEBUG = os.environ.get("DEBUG", "True") == "True"
+ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+INSTALLED_APPS = [
+    "django.contrib.admin",
+    "django.contrib.auth",
+    "django.contrib.contenttypes",
+    "django.contrib.sessions",
+    "django.contrib.messages",
+    "django.contrib.staticfiles",
+    # Third-party
+    "rest_framework",
+    "rest_framework_simplejwt",
+    "rest_framework_simplejwt.token_blacklist",
+    "django_filters",
+    "axes",
+    "django_celery_beat",
+    # Local apps
+    "apps.users",
+    "apps.items",
+]
+
+MIDDLEWARE = [
+    "django.middleware.security.SecurityMiddleware",
+    "django.contrib.sessions.middleware.SessionMiddleware",
+    "django.middleware.common.CommonMiddleware",
+    "django.middleware.csrf.CsrfViewMiddleware",
+    "django.contrib.auth.middleware.AuthenticationMiddleware",
+    "django.contrib.messages.middleware.MessageMiddleware",
+    "django.middleware.clickjacking.XFrameOptionsMiddleware",
+    "axes.middleware.AxesMiddleware",
+]
+
+ROOT_URLCONF = "config.urls"
+
+TEMPLATES = [
+    {
+        "BACKEND": "django.template.backends.django.DjangoTemplates",
+        "DIRS": [],
+        "APP_DIRS": True,
+        "OPTIONS": {
+            "context_processors": [
+                "django.template.context_processors.debug",
+                "django.template.context_processors.request",
+                "django.contrib.auth.context_processors.auth",
+                "django.contrib.messages.context_processors.messages",
+            ],
+        },
+    },
+]
+
+WSGI_APPLICATION = "config.wsgi.application"
+ASGI_APPLICATION = "config.asgi.application"
+
+# =============================================================================
+# Database
+# =============================================================================
+
+DATABASE_URL = os.environ.get("DATABASE_URL", "sqlite:///db.sqlite3")
+
+if DATABASE_URL.startswith("postgres"):
+    # Parse postgres://user:pass@host:port/dbname
+    import urllib.parse
+
+    url = urllib.parse.urlparse(DATABASE_URL)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.postgresql",
+            "NAME": url.path[1:],
+            "USER": url.username,
+            "PASSWORD": url.password,
+            "HOST": url.hostname,
+            "PORT": url.port or 5432,
+        }
+    }
+else:
+    # sqlite fallback (dev only)
+    DATABASES = {
+        "default": {
+            "ENGINE": "django.db.backends.sqlite3",
+            "NAME": BASE_DIR / "db.sqlite3",
+        }
+    }
+
+# =============================================================================
+# Auth
+# =============================================================================
+
+AUTH_USER_MODEL = "users.User"
+
+AUTH_PASSWORD_VALIDATORS = [
+    {"NAME": "django.contrib.auth.password_validation.UserAttributeSimilarityValidator"},
+    {"NAME": "django.contrib.auth.password_validation.MinimumLengthValidator"},
+    {"NAME": "django.contrib.auth.password_validation.CommonPasswordValidator"},
+    {"NAME": "django.contrib.auth.password_validation.NumericPasswordValidator"},
+]
+
+AUTHENTICATION_BACKENDS = [
+    "axes.backends.AxesBackend",  # Must be first for rate limiting
+    "django.contrib.auth.backends.ModelBackend",
+]
+
+# django-axes — brute-force protection on login
+AXES_FAILURE_LIMIT = 10
+AXES_COOLOFF_TIME = 1  # hours
+AXES_RESET_ON_SUCCESS = True
+
+# =============================================================================
+# i18n / Time
+# =============================================================================
+
+LANGUAGE_CODE = "en-us"
+TIME_ZONE = "UTC"
+USE_I18N = True
+USE_TZ = True
+
+# =============================================================================
+# Static
+# =============================================================================
+
+STATIC_URL = "static/"
+STATIC_ROOT = BASE_DIR / "staticfiles"
+DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# =============================================================================
+# Django REST Framework
+# =============================================================================
+
+REST_FRAMEWORK = {
+    "DEFAULT_AUTHENTICATION_CLASSES": [
+        "apps.users.authentication.CookieJWTAuthentication",
+        "rest_framework_simplejwt.authentication.JWTAuthentication",
+    ],
+    "DEFAULT_PERMISSION_CLASSES": [
+        "rest_framework.permissions.IsAuthenticated",
+    ],
+    "DEFAULT_FILTER_BACKENDS": [
+        "django_filters.rest_framework.DjangoFilterBackend",
+        "rest_framework.filters.SearchFilter",
+        "rest_framework.filters.OrderingFilter",
+    ],
+    "DEFAULT_THROTTLE_CLASSES": [
+        "rest_framework.throttling.ScopedRateThrottle",
+    ],
+    "DEFAULT_THROTTLE_RATES": {
+        "auth_login": "10/minute",
+        "password_reset": "3/hour",
+        "password_change": "2/hour",
+        "profile_update": "2/hour",
+    },
+    "DEFAULT_PAGINATION_CLASS": "rest_framework.pagination.PageNumberPagination",
+    "PAGE_SIZE": 20,
+}
+
+# =============================================================================
+# SimpleJWT
+# =============================================================================
+
+SIMPLE_JWT = {
+    "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
+    "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
+    # Disable rotation for cookie-based auth (prevents multi-tab race conditions)
+    "ROTATE_REFRESH_TOKENS": False,
+    "BLACKLIST_AFTER_ROTATION": False,
+    "UPDATE_LAST_LOGIN": False,
+    "ALGORITHM": "HS256",
+    "SIGNING_KEY": os.environ.get("JWT_SIGNING_KEY", SECRET_KEY),
+    "AUTH_HEADER_TYPES": ("Bearer",),
+    "AUDIENCE": os.environ.get("JWT_AUDIENCE", "costco-saver-api"),
+    "ISSUER": os.environ.get("JWT_ISSUER", "costco-saver"),
+}
+
+# JWT cookie settings
+JWT_COOKIE_SECURE = not DEBUG
+JWT_COOKIE_SAMESITE = "Lax"
+JWT_COOKIE_PATH = "/"
+
+# =============================================================================
+# Email
+# =============================================================================
+
+if os.environ.get("EMAIL_HOST"):
+    EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"
+    EMAIL_HOST = os.environ["EMAIL_HOST"]
+    EMAIL_PORT = int(os.environ.get("EMAIL_PORT", 587))
+    EMAIL_HOST_USER = os.environ.get("EMAIL_HOST_USER", "")
+    EMAIL_HOST_PASSWORD = os.environ.get("EMAIL_HOST_PASSWORD", "")
+    EMAIL_USE_TLS = True
+    DEFAULT_FROM_EMAIL = os.environ.get("DEFAULT_FROM_EMAIL", "noreply@example.com")
+else:
+    EMAIL_BACKEND = "django.core.mail.backends.console.EmailBackend"
+
+# =============================================================================
+# Celery (background tasks / scheduling)
+# =============================================================================
+
+CELERY_BROKER_URL = os.environ.get("CELERY_BROKER_URL", "redis://localhost:6379/0")
+CELERY_RESULT_BACKEND = os.environ.get("CELERY_RESULT_BACKEND", "redis://localhost:6379/1")
+CELERY_TASK_DEFAULT_QUEUE = "default"
+# Receipt parsing runs on a dedicated single-concurrency queue so the vision
+# LLM endpoint (one job at a time) is never hit concurrently.
+CELERY_TASK_ROUTES = {
+    "apps.receipts.tasks.parse_receipt": {"queue": "receipt_parse"},
+}
+CELERY_TASK_ACKS_LATE = True
+CELERY_WORKER_PREFETCH_MULTIPLIER = 1
+CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+
+# =============================================================================
+# Receipt parsing — self-hosted vision LLM endpoint
+# =============================================================================
+
+# Provided by Kevin's GPU box; app only calls the endpoint (no local model).
+RECEIPT_LLM_BASE_URL = os.environ.get("RECEIPT_LLM_BASE_URL", "")
+RECEIPT_LLM_MODEL = os.environ.get("RECEIPT_LLM_MODEL", "")
+# Secret — bearer token, kept in env only, never committed.
+RECEIPT_LLM_API_KEY = os.environ.get("RECEIPT_LLM_API_KEY", "")
+RECEIPT_LLM_TIMEOUT = int(os.environ.get("RECEIPT_LLM_TIMEOUT", "300"))
