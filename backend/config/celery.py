@@ -1,7 +1,7 @@
 """Celery application for costco-saver.
 
 Background tasks and scheduling. Receipt parsing runs on an on-demand,
-single-concurrency, retryable queue; price checks run on their own schedule.
+single-concurrency, retryable queue; other jobs run on their own schedules.
 """
 
 import os

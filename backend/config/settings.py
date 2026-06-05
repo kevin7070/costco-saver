@@ -37,6 +37,7 @@ INSTALLED_APPS = [
     "apps.items",
     "apps.parsers",
     "apps.receipts",
+    "apps.pricing",
 ]
 
 MIDDLEWARE = [
@@ -222,6 +223,7 @@ CELERY_TASK_DEFAULT_QUEUE = "default"
 # LLM endpoint (one job at a time) is never hit concurrently.
 CELERY_TASK_ROUTES = {
     "apps.receipts.tasks.parse_receipt": {"queue": "receipt_parse"},
+    "apps.pricing.tasks.refresh_prices": {"queue": "price_refresh"},
 }
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
@@ -237,3 +239,15 @@ RECEIPT_LLM_MODEL = os.environ.get("RECEIPT_LLM_MODEL", "")
 # Secret — bearer token, kept in env only, never committed.
 RECEIPT_LLM_API_KEY = os.environ.get("RECEIPT_LLM_API_KEY", "")
 RECEIPT_LLM_TIMEOUT = int(os.environ.get("RECEIPT_LLM_TIMEOUT", "300"))
+
+# =============================================================================
+# Price provider — pluggable, resolved at runtime (default: no-op NullProvider)
+# =============================================================================
+
+# Dotted path to the PriceProvider implementation. The default ships in-repo and
+# does nothing; a real provider is supplied by the deployment environment only.
+PRICE_PROVIDER = os.environ.get("PRICE_PROVIDER", "apps.pricing.null_provider.NullProvider")
+PRICE_PROVIDER_URL = os.environ.get("PRICE_PROVIDER_URL", "")
+PRICE_PROVIDER_API_KEY = os.environ.get("PRICE_PROVIDER_API_KEY", "")
+PRICE_PROVIDER_TIMEOUT = int(os.environ.get("PRICE_PROVIDER_TIMEOUT", "60"))
+PRICE_CHECK_ADJUSTMENT_DAYS = int(os.environ.get("PRICE_CHECK_ADJUSTMENT_DAYS", "30"))

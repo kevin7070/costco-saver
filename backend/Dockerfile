@@ -10,10 +10,6 @@ COPY requirements.txt .
 RUN pip install --no-cache-dir --upgrade pip \
     && pip install --no-cache-dir -r requirements.txt
 
-# Playwright Firefox + its system deps, for costco.ca price scraping.
-# Firefox evades Akamai-style bot detection far more reliably than Chromium.
-RUN playwright install --with-deps firefox
-
 COPY . .
 
 EXPOSE 8000

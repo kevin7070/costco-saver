@@ -19,12 +19,6 @@ celery[redis]~=5.4
 redis~=5.2
 django-celery-beat~=2.7
 
-# Costco price scraping — tiered bot-protection bypass:
-# light HTTP (httpx HTTP/2) → TLS-fingerprint spoof (curl_cffi) → Playwright Firefox
-httpx[http2]>=0.28
-curl_cffi>=0.14
-playwright>=1.58
-
 # Production WSGI server (Docker / demo)
 gunicorn~=23.0
 

@@ -63,6 +63,18 @@ services:
       - media:/app/media
     restart: unless-stopped
 
+  pricing-worker:
+    build: ./backend
+    env_file: ./backend/.env
+    depends_on:
+      - db
+      - redis
+    # Single concurrency keeps load on the external price provider bounded
+    command: celery -A config worker -Q price_refresh -c 1 -l info
+    volumes:
+      - media:/app/media
+    restart: unless-stopped
+
   beat:
     build: ./backend
     env_file: ./backend/.env

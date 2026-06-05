@@ -78,7 +78,14 @@ class LineItem(models.Model):
         max_length=16, choices=ItemType.choices, default=ItemType.PRODUCT
     )
     taxable = models.BooleanField(default=False)
-    # Set by the Phase-3 matching step; `product` FK added then.
+    # Set by the matching step.
+    product = models.ForeignKey(
+        "pricing.Product",
+        on_delete=models.SET_NULL,
+        null=True,
+        blank=True,
+        related_name="line_items",
+    )
     tracking_status = models.CharField(
         max_length=16, choices=TrackingStatus.choices, default=TrackingStatus.PENDING
     )

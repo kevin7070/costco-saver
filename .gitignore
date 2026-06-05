@@ -47,3 +47,7 @@ next-env.d.ts
 
 # Local working files
 plans/
+
+# Secret deploy override (injects external services; never commit to this repo)
+docker-compose.override.yml
+docker-compose.*.override.yml
