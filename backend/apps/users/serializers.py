@@ -34,7 +34,9 @@ class LoginSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
 
     def validate(self, attrs):
+        # request is required by django-axes' AxesBackend (records IP / failures).
         user = authenticate(
+            request=self.context.get("request"),
             username=attrs["email"].lower().strip(),
             password=attrs["password"],
         )

@@ -36,6 +36,8 @@ services:
       sh -c "python manage.py migrate &&
              python manage.py collectstatic --noinput &&
              gunicorn config.wsgi:application --bind 0.0.0.0:8000"
+    volumes:
+      - media:/app/media
     restart: unless-stopped
 
   worker:
@@ -45,6 +47,8 @@ services:
       - db
       - redis
     command: celery -A config worker -Q default -c 2 -l info
+    volumes:
+      - media:/app/media
     restart: unless-stopped
 
   receipt-worker:
@@ -55,6 +59,8 @@ services:
       - redis
     # Single concurrency — vision LLM endpoint handles one job at a time
     command: celery -A config worker -Q receipt_parse -c 1 -l info
+    volumes:
+      - media:/app/media
     restart: unless-stopped
 
   beat:
@@ -64,6 +70,8 @@ services:
       - db
       - redis
     command: celery -A config beat -l info --scheduler django_celery_beat.schedulers:DatabaseScheduler
+    volumes:
+      - media:/app/media
     restart: unless-stopped
 
   frontend:
@@ -79,3 +87,4 @@ services:
 
 volumes:
   pgdata:
+  media:

@@ -1,18 +1,12 @@
 import type { NextConfig } from "next";
 
-const DJANGO_API_URL = process.env.DJANGO_API_URL || "http://localhost:8000";
-
 const nextConfig: NextConfig = {
   output: "standalone",
-  // Django expects trailing slashes; don't let Next.js redirect
+  // Django expects trailing slashes; don't let Next.js redirect.
   skipTrailingSlashRedirect: true,
-  async rewrites() {
-    // Receipt images live in Django's MEDIA; proxy /media/* to the backend
-    // so same-origin <img src="/media/..."> works.
-    return [
-      { source: "/media/:path*", destination: `${DJANGO_API_URL}/media/:path*` },
-    ];
-  },
+  // /media/* and /api/v1/* are proxied to Django via route handlers
+  // (src/app/media + src/app/api) so the upstream host is resolved at runtime,
+  // not baked at build time the way next.config rewrites would.
 };
 
 export default nextConfig;

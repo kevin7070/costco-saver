@@ -14,6 +14,12 @@ class LineItemSerializer(serializers.ModelSerializer):
 
 class ReceiptSerializer(serializers.ModelSerializer):
     line_items = LineItemSerializer(many=True, read_only=True)
+    # Always relative (/media/...) regardless of serializer context, so the
+    # frontend proxies it same-origin; build_absolute_uri would leak web:8000.
+    image = serializers.SerializerMethodField()
+
+    def get_image(self, obj):
+        return obj.image.url if obj.image else None
 
     class Meta:
         model = Receipt
@@ -61,7 +67,14 @@ class ReceiptReviewSerializer(serializers.ModelSerializer):
         if items is not None:
             instance.line_items.all().delete()
             LineItem.objects.bulk_create([
-                LineItem(receipt=instance, position=i, **item)
+                LineItem(
+                    receipt=instance,
+                    position=i,
+                    tracking_status=LineItem.initial_tracking_status(
+                        item.get("item_type", LineItem.ItemType.PRODUCT)
+                    ),
+                    **item,
+                )
                 for i, item in enumerate(items)
             ])
         return instance

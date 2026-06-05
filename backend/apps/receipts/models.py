@@ -86,3 +86,10 @@ class LineItem(models.Model):
 
     def __str__(self) -> str:
         return f"{self.raw_name} ({self.item_type})"
+
+    @staticmethod
+    def initial_tracking_status(item_type: str) -> str:
+        """Only products are price-tracked; service/discount skip tracking from the start."""
+        if item_type in (LineItem.ItemType.SERVICE, LineItem.ItemType.DISCOUNT):
+            return LineItem.TrackingStatus.SKIPPED
+        return LineItem.TrackingStatus.PENDING

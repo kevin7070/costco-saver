@@ -28,13 +28,13 @@ htmlcov/
 .venv/
 venv/
 
-# Django
+# Django (anchor to backend/ so frontend's src/app/media route isn't ignored)
 *.log
 local_settings.py
 db.sqlite3
 db.sqlite3-journal
-media/
-staticfiles/
+/backend/media/
+/backend/staticfiles/
 
 # Node
 node_modules/

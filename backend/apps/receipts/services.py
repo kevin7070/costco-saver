@@ -48,13 +48,7 @@ def apply_parse_result(receipt: Receipt, parsed: StructuredReceipt) -> Receipt:
             amount=li.amount,
             item_type=li.item_type,
             taxable=li.taxable,
-            # product/service/discount → only product is tracked (Phase 3);
-            # service/discount skipped from the start.
-            tracking_status=(
-                LineItem.TrackingStatus.SKIPPED
-                if li.item_type in (LineItem.ItemType.SERVICE, LineItem.ItemType.DISCOUNT)
-                else LineItem.TrackingStatus.PENDING
-            ),
+            tracking_status=LineItem.initial_tracking_status(li.item_type),
             position=i,
         )
         for i, li in enumerate(parsed.line_items)

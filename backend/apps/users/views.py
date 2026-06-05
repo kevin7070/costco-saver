@@ -41,7 +41,8 @@ class LoginView(APIView):
     throttle_scope = "auth_login"
 
     def post(self, request):
-        serializer = LoginSerializer(data=request.data)
+        # Pass request so AxesBackend can record the login attempt.
+        serializer = LoginSerializer(data=request.data, context={"request": request})
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
 
