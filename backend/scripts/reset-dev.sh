@@ -5,13 +5,18 @@
 #
 #     bash backend/scripts/reset-dev.sh
 #
-# `flush` wipes table data but keeps the schema/migrations (no re-migrate),
-# so this is a fast "clean slate + test accounts" reset, not a teardown.
+# `flush` wipes table data but keeps the schema/migrations (no re-migrate); we
+# also delete uploaded media files so receipt images / avatars don't orphan.
+# This is a fast "clean slate + test accounts" reset, not a teardown.
 # For a full schema rebuild, use: docker compose down -v && docker compose up -d --build
 set -euo pipefail
 
 echo "⚠️  Flushing ALL data in the dev database..."
 docker compose exec -T web python manage.py flush --no-input
+
+echo "Deleting uploaded media files (receipts, avatars)..."
+# -mindepth 1 keeps /app/media (the volume mount) itself; deletes its contents.
+docker compose exec -T web find /app/media -mindepth 1 -delete
 
 echo "Seeding dev/test accounts..."
 docker compose exec -T web python manage.py shell < backend/scripts/seed_dev.py

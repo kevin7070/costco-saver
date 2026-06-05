@@ -20,8 +20,9 @@ docker compose exec -T web python manage.py shell < backend/scripts/seed_dev.py
 
 ## reset-dev.sh — flush data + re-seed
 
-Wipes ALL table data (`manage.py flush`, schema kept) then re-seeds the accounts
-above. Use it to get back to a clean slate between tests.
+Wipes ALL table data (`manage.py flush`, schema kept) **and deletes uploaded
+media files** (receipt images / avatars under `MEDIA_ROOT`), then re-seeds the
+accounts above. Use it to get back to a clean slate between tests.
 
 ```sh
 bash backend/scripts/reset-dev.sh
