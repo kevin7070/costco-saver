@@ -107,6 +107,12 @@ export default function DashboardLayout({
               Dashboard
             </Link>
             <Link
+              href="/dashboard/receipts"
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            >
+              Receipts
+            </Link>
+            <Link
               href="/dashboard/items"
               className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             >
