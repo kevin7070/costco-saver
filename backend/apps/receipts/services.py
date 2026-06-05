@@ -20,7 +20,7 @@ def create_receipt(*, user, image) -> Receipt:
     # Local import avoids an app-load import cycle (tasks imports models).
     from .tasks import parse_receipt
 
-    parse_receipt.delay(receipt.id)
+    parse_receipt.delay(str(receipt.id))
     return receipt
 
 

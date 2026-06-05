@@ -2,6 +2,7 @@
 
 from django.contrib.auth.models import AbstractUser
 from django.db import models
+from uuid6 import uuid7
 
 from .managers import UserManager
 
@@ -14,6 +15,7 @@ class UserType(models.TextChoices):
 class User(AbstractUser):
     """Custom User with email-based auth."""
 
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     username = None
     email = models.EmailField("email address", unique=True)
 

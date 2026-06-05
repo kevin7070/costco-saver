@@ -13,7 +13,7 @@ import {
 import { useApi } from "@/hooks/useApi";
 
 type Receipt = {
-  id: number;
+  id: string;
   store_location: string;
   purchase_date: string | null;
   receipt_number: string;

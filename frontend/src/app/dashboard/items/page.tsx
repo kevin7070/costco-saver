@@ -16,7 +16,7 @@ import {
 import { useApi } from "@/hooks/useApi";
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   status: ItemStatus;

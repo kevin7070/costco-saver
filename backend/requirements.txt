@@ -4,6 +4,7 @@ djangorestframework-simplejwt~=5.3
 python-dotenv~=1.0
 psycopg2-binary~=2.9
 Pillow~=11.0
+uuid6>=2024.7  # UUIDv7 generator (native uuid.uuid7 only lands in Python 3.14)
 
 # Receipt parsing — OpenAI-compatible client for the self-hosted vision LLM
 openai>=1.40

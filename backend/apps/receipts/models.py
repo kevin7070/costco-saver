@@ -7,6 +7,7 @@ and only becomes `confirmed` after the user checks it.
 
 from django.conf import settings
 from django.db import models
+from uuid6 import uuid7
 
 
 class Receipt(models.Model):
@@ -17,6 +18,7 @@ class Receipt(models.Model):
         CONFIRMED = "confirmed", "Confirmed"
         FAILED = "failed", "Failed"
 
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="receipts"
     )
@@ -63,6 +65,7 @@ class LineItem(models.Model):
         UNTRACKED = "untracked", "Untracked"
         SKIPPED = "skipped", "Skipped"
 
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     receipt = models.ForeignKey(
         Receipt, on_delete=models.CASCADE, related_name="line_items"
     )

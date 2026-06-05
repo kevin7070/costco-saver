@@ -23,7 +23,7 @@ logger = logging.getLogger(__name__)
     max_retries=2,
     default_retry_delay=30,
 )
-def parse_receipt(self, receipt_id: int) -> None:
+def parse_receipt(self, receipt_id: str) -> None:
     try:
         receipt = Receipt.objects.get(pk=receipt_id)
     except Receipt.DoesNotExist:

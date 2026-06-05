@@ -12,11 +12,11 @@ import {
 import { ApiError, useApi } from "@/hooks/useApi";
 
 type Item = {
-  id: number;
+  id: string;
   name: string;
   description: string;
   status: ItemStatus;
-  owner: number;
+  owner: string;
   owner_name: string;
   created_at: string;
   updated_at: string;

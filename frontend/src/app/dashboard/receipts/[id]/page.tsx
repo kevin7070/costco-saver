@@ -7,7 +7,7 @@ import { PageHeader } from "@/components/admin";
 import { ApiError, useApi } from "@/hooks/useApi";
 
 type LineItem = {
-  id?: number;
+  id?: string;
   raw_name: string;
   item_number: string;
   quantity: number;
@@ -19,7 +19,7 @@ type LineItem = {
 };
 
 type Receipt = {
-  id: number;
+  id: string;
   image: string;
   store_location: string;
   store_number: string;

@@ -11,7 +11,7 @@ const REFRESH_INTERVAL_MS = 13 * 60 * 1000;
 const VISIBILITY_REFRESH_COOLDOWN_MS = 30 * 1000;
 
 type User = {
-  id: number;
+  id: string;
   email: string;
   full_name: string;
   user_type: string;

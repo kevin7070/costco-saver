@@ -6,6 +6,7 @@ service-mediated transitions, audit timestamps, owner FK) as a template.
 
 from django.conf import settings
 from django.db import models
+from uuid6 import uuid7
 
 
 class ItemStatus(models.TextChoices):
@@ -19,6 +20,7 @@ class Item(models.Model):
     Status lifecycle: active → archived (via archive_item service).
     """
 
+    id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     name = models.CharField(max_length=200)
     description = models.TextField(blank=True)
     status = models.CharField(

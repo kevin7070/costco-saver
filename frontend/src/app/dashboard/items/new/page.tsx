@@ -27,7 +27,7 @@ export default function NewItemPage() {
 
     setSaving(true);
     try {
-      const created = await fetchApi<{ id: number }>("/items/", {
+      const created = await fetchApi<{ id: string }>("/items/", {
         method: "POST",
         body: parsed.data,
       });

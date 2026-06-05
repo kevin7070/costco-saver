@@ -30,7 +30,7 @@ export default function UploadReceiptPage() {
         credentials: "include",
       });
       const data = (await resp.json().catch(() => ({}))) as {
-        id?: number;
+        id?: string;
         detail?: string;
         image?: string[];
       };
