@@ -1,8 +1,22 @@
 # Costco Saver
 
-A tool to help save money at Costco.
+Keep track of what you bought at Costco and get alerted when the price drops
+while you can still claim the difference.
 
-> 🚧 Early development.
+> 🚧 Early development (v0.3.0).
+
+## What it does
+
+- **Receipt capture** — upload a receipt (image or PDF); it is parsed into line
+  items for you to review and confirm.
+- **Price tracking** — confirmed products are matched by item number and tracked
+  over time.
+- **Drop alerts** — when a tracked product's price falls below what you paid, an
+  alert is raised, flagged for whether it is still within the price-adjustment
+  window.
+
+Price lookups go through a pluggable provider; the bundled default is a no-op, so
+a real price source is supplied by the deployment environment.
 
 ## Stack
 
