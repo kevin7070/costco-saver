@@ -1,8 +1,8 @@
 /**
  * Proxy route handler — forwards /api/v1/* to Django on the same origin.
  *
- * Rewrites cookie paths from /api/ → /
- * so the browser attaches JWT cookies to all frontend routes.
+ * Rewrites cookie paths from /api/ → / so the browser attaches JWT cookies
+ * to all frontend routes.
  */
 
 import { NextRequest, NextResponse } from "next/server";
@@ -14,31 +14,35 @@ async function proxyRequest(
   { params }: { params: Promise<{ path: string[] }> },
 ) {
   const { path } = await params;
-  const targetPath = path.join("/");
-  const search = request.nextUrl.search;
-  const targetUrl = `${DJANGO_API_URL}/api/v1/${targetPath}/${search}`;
+  const targetUrl = `${DJANGO_API_URL}/api/v1/${path.join("/")}/${request.nextUrl.search}`;
 
-  // Forward headers but override host to the internal target
   const forwardHeaders = new Headers(request.headers);
-  forwardHeaders.set("host", new URL(DJANGO_API_URL).host);
+  // Let fetch recompute these for the upstream request.
+  forwardHeaders.delete("host");
+  forwardHeaders.delete("content-length");
 
+  const hasBody = !["GET", "HEAD"].includes(request.method);
   const init: RequestInit = {
     method: request.method,
     headers: forwardHeaders,
-    body: ["GET", "HEAD"].includes(request.method)
-      ? undefined
-      : await request.text(),
+    // arrayBuffer is binary-safe — handles JSON and multipart (image/PDF) alike.
+    body: hasBody ? await request.arrayBuffer() : undefined,
     redirect: "manual",
   };
 
   const resp = await fetch(targetUrl, init);
 
-  // Rewrite cookie paths from /api/ → /
   const responseHeaders = new Headers(resp.headers);
-  const setCookie = resp.headers.get("set-cookie");
-  if (setCookie) {
-    const rewritten = setCookie.replace(/Path=\/api[^;]*/gi, "Path=/");
-    responseHeaders.set("set-cookie", rewritten);
+  // The body is already decoded by fetch; drop headers that would mismatch it.
+  responseHeaders.delete("content-encoding");
+  responseHeaders.delete("content-length");
+  responseHeaders.delete("transfer-encoding");
+
+  // Login sets multiple cookies (access + refresh); getSetCookie returns each
+  // separately (get("set-cookie") would merge them and break parsing).
+  responseHeaders.delete("set-cookie");
+  for (const cookie of resp.headers.getSetCookie()) {
+    responseHeaders.append("set-cookie", cookie.replace(/Path=\/api[^;]*/gi, "Path=/"));
   }
 
   return new NextResponse(resp.body, {
