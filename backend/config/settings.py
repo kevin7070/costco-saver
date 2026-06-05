@@ -4,6 +4,7 @@ import os
 from datetime import timedelta
 from pathlib import Path
 
+from celery.schedules import crontab
 from dotenv import load_dotenv
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -228,6 +229,14 @@ CELERY_TASK_ROUTES = {
 CELERY_TASK_ACKS_LATE = True
 CELERY_WORKER_PREFETCH_MULTIPLIER = 1
 CELERY_BEAT_SCHEDULER = "django_celery_beat.schedulers:DatabaseScheduler"
+# Scheduled jobs — DatabaseScheduler syncs these into django_celery_beat on boot.
+CELERY_BEAT_SCHEDULE = {
+    "refresh-due-prices": {
+        # Daily fan-out: queue a refresh for every product whose price is stale.
+        "task": "apps.pricing.tasks.enqueue_due_checks",
+        "schedule": crontab(hour=6, minute=0),
+    },
+}
 
 # =============================================================================
 # Receipt parsing — self-hosted vision LLM endpoint

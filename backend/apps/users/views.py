@@ -11,6 +11,7 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from .serializers import (
     ChangePasswordSerializer,
     LoginSerializer,
+    RegisterSerializer,
     UserSerializer,
 )
 
@@ -127,3 +128,23 @@ class ChangePasswordView(APIView):
         request.user.set_password(serializer.validated_data["new_password"])
         request.user.save()
         return Response({"detail": "Password changed."}, status=status.HTTP_200_OK)
+
+
+class RegisterView(APIView):
+    """Public self-service registration. Creates a user and logs them in."""
+
+    permission_classes = [AllowAny]
+    throttle_scope = "auth_login"
+
+    def post(self, request):
+        serializer = RegisterSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        user = serializer.save()
+
+        refresh = RefreshToken.for_user(user)
+        response = Response(
+            {"user": UserSerializer(user).data},
+            status=status.HTTP_201_CREATED,
+        )
+        _set_jwt_cookies(response, str(refresh.access_token), str(refresh))
+        return response

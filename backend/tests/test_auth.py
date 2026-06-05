@@ -76,3 +76,49 @@ class TestChangePassword:
             format="json",
         )
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestRegister:
+    def test_success_creates_user_and_logs_in(self, api_client):
+        resp = api_client.post(
+            reverse("auth:register"),
+            {
+                "email": "new@example.com",
+                "password": "S3curePass!9",
+                "first_name": "New",
+                "last_name": "User",
+            },
+            format="json",
+        )
+        assert resp.status_code == 201
+        assert "access_token" in resp.cookies
+        assert "refresh_token" in resp.cookies
+        assert resp.data["user"]["email"] == "new@example.com"
+
+    def test_duplicate_email_returns_400(self, api_client):
+        UserFactory(email="dupe@example.com")
+        resp = api_client.post(
+            reverse("auth:register"),
+            {
+                "email": "dupe@example.com",
+                "password": "S3curePass!9",
+                "first_name": "D",
+                "last_name": "U",
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_weak_password_returns_400(self, api_client):
+        resp = api_client.post(
+            reverse("auth:register"),
+            {
+                "email": "weak@example.com",
+                "password": "123",
+                "first_name": "W",
+                "last_name": "K",
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
