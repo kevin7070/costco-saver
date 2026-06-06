@@ -27,6 +27,23 @@ export class ApiError extends Error {
   }
 }
 
+/**
+ * Pull a human message from an error body. Handles both DRF shapes:
+ *   { detail: "..." }              non-field errors (e.g. login)
+ *   { field: ["msg", ...], ... }   field-level validation (e.g. register)
+ */
+function extractErrorMessage(data: unknown, status: number): string {
+  if (typeof data === "object" && data !== null) {
+    const obj = data as Record<string, unknown>;
+    if (typeof obj.detail === "string") return obj.detail;
+    for (const value of Object.values(obj)) {
+      const msg = Array.isArray(value) ? value[0] : value;
+      if (typeof msg === "string") return msg;
+    }
+  }
+  return `HTTP ${status}`;
+}
+
 export function useApi() {
   const fetchApi = useCallback(
     async <T = unknown>(
@@ -56,11 +73,7 @@ export function useApi() {
         : await resp.text();
 
       if (!resp.ok) {
-        const message =
-          typeof data === "object" && data !== null && "detail" in data
-            ? String((data as { detail: string }).detail)
-            : `HTTP ${resp.status}`;
-        throw new ApiError(resp.status, message, data);
+        throw new ApiError(resp.status, extractErrorMessage(data, resp.status), data);
       }
 
       return data as T;
