@@ -54,6 +54,17 @@ class ReceiptViewSet(
         receipt = self.get_object()
         if not receipt.image:
             raise Http404
-        response = FileResponse(receipt.image.open("rb"))
+        # Force a safe content-type from an allowlist — never trust the stored
+        # filename's extension (an evil.html upload must not serve as HTML).
+        import mimetypes
+
+        guessed, _ = mimetypes.guess_type(receipt.image.name)
+        content_type = (
+            guessed
+            if guessed in ("image/jpeg", "image/png", "application/pdf")
+            else "application/octet-stream"
+        )
+        response = FileResponse(receipt.image.open("rb"), content_type=content_type)
         response["X-Content-Type-Options"] = "nosniff"
+        response["Content-Disposition"] = "inline"
         return response

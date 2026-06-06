@@ -187,6 +187,9 @@ class RegisterView(APIView):
             )
             tasks.send_verification_email.delay(str(user.pk))
         else:
+            # Constant-time: do equivalent password-hash work so response timing
+            # doesn't reveal that the email already exists.
+            User().set_password(data["password"])
             tasks.send_already_registered_email.delay(email)
 
         return Response(_REGISTER_NEUTRAL, status=status.HTTP_202_ACCEPTED)
@@ -348,9 +351,21 @@ class TwoFactorVerifyView(APIView):
                 {"detail": "Invalid or expired session. Log in again."},
                 status=status.HTTP_400_BAD_REQUEST,
             )
+        # Per-account lockout caps TOTP guessing even across many IPs (a per-IP
+        # throttle alone is bypassable with a botnet).
+        from django.core.cache import cache
+
+        fail_key = f"2fa-fail:{user.pk}"
+        if cache.get(fail_key, 0) >= 5:
+            return Response(
+                {"detail": "Too many attempts. Please log in again later."},
+                status=status.HTTP_429_TOO_MANY_REQUESTS,
+            )
         from django_otp.plugins.otp_totp.models import TOTPDevice
 
         device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
         if device is None or not device.verify_token(serializer.validated_data["code"]):
+            cache.set(fail_key, cache.get(fail_key, 0) + 1, timeout=900)
             return Response({"detail": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+        cache.delete(fail_key)
         return _login_response(user)

@@ -151,6 +151,20 @@ class TestRegister:
         )
         assert resp.status_code == 400
 
+    def test_disposable_subdomain_blocked(self, api_client):
+        # sub.mailinator.com must be caught via the parent-domain check.
+        resp = api_client.post(
+            reverse("auth:register"),
+            {
+                "email": "x@sub.mailinator.com",
+                "password": "S3curePass!9",
+                "first_name": "X",
+                "last_name": "Y",
+            },
+            format="json",
+        )
+        assert resp.status_code == 400
+
     def test_weak_password_returns_400(self, api_client):
         resp = api_client.post(
             reverse("auth:register"),
@@ -365,3 +379,25 @@ class TestTwoFactor:
         )
         assert resp.status_code == 200
         assert not TOTPDevice.objects.filter(user=user).exists()
+
+    def test_lockout_after_repeated_failures(self, api_client, user):
+        self._device(user, confirmed=True)
+        login = api_client.post(
+            reverse("auth:login"),
+            {"email": user.email, "password": "testpass123"},
+            format="json",
+        )
+        pre = login.json()["pre_auth_token"]
+        for _ in range(5):
+            api_client.post(
+                reverse("auth:2fa-verify"),
+                {"pre_auth_token": pre, "code": "000000"},
+                format="json",
+            )
+        # 6th attempt is locked out per-account, regardless of source IP.
+        resp = api_client.post(
+            reverse("auth:2fa-verify"),
+            {"pre_auth_token": pre, "code": "000000"},
+            format="json",
+        )
+        assert resp.status_code == 429
