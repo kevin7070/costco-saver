@@ -145,3 +145,26 @@ class TestCookieAuth:
         api_client.cookies["access_token"] = "invalid.token.value"
         resp = api_client.get(reverse("auth:me"))
         assert resp.status_code == 401
+
+
+@pytest.mark.django_db
+class TestRefresh:
+    def test_rotates_and_blacklists_old(self, api_client):
+        UserFactory(email="rot@example.com", password="testpass123")
+        login = api_client.post(
+            reverse("auth:login"),
+            {"email": "rot@example.com", "password": "testpass123"},
+            format="json",
+        )
+        old_refresh = login.cookies["refresh_token"].value
+
+        api_client.cookies["refresh_token"] = old_refresh
+        r1 = api_client.post(reverse("auth:refresh"))
+        assert r1.status_code == 200
+        new_refresh = r1.cookies["refresh_token"].value
+        assert new_refresh and new_refresh != old_refresh  # rotated
+
+        # Reusing the OLD refresh token is now rejected (blacklisted).
+        api_client.cookies["refresh_token"] = old_refresh
+        r2 = api_client.post(reverse("auth:refresh"))
+        assert r2.status_code == 401

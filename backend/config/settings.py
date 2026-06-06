@@ -16,8 +16,16 @@ load_dotenv(BASE_DIR / ".env")
 # =============================================================================
 
 SECRET_KEY = os.environ.get("SECRET_KEY", "dev-insecure-change-me")
-DEBUG = os.environ.get("DEBUG", "True") == "True"
+# Fail-secure: default DEBUG off so a prod box that forgets to set it stays safe.
+# Dev/test set DEBUG=True explicitly (backend/.env, CI env).
+DEBUG = os.environ.get("DEBUG", "False") == "True"
 ALLOWED_HOSTS = os.environ.get("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+# Never run production on the insecure dev key.
+if not DEBUG and SECRET_KEY == "dev-insecure-change-me":
+    from django.core.exceptions import ImproperlyConfigured
+
+    raise ImproperlyConfigured("SECRET_KEY must be set when DEBUG is False.")
 
 INSTALLED_APPS = [
     "django.contrib.admin",
@@ -125,6 +133,11 @@ AUTHENTICATION_BACKENDS = [
 AXES_FAILURE_LIMIT = 10
 AXES_COOLOFF_TIME = 1  # hours
 AXES_RESET_ON_SUCCESS = True
+# Lock by username AND by IP as independent groups: protects one account from
+# distributed credential stuffing (username lock) and throttles one source
+# (IP lock). Locking a username is a DoS-on-victim vector, mitigated by
+# password-reset auto-unlock + the 1h cooloff.
+AXES_LOCKOUT_PARAMETERS = ["username", "ip_address"]
 
 # =============================================================================
 # i18n / Time
@@ -144,6 +157,10 @@ STATIC_ROOT = BASE_DIR / "staticfiles"
 MEDIA_URL = "media/"
 MEDIA_ROOT = BASE_DIR / "media"  # uploaded receipt images
 DEFAULT_AUTO_FIELD = "django.db.models.BigAutoField"
+
+# Upload cap — receipts are images/PDFs; reject larger bodies early.
+DATA_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024  # 10 MB
+FILE_UPLOAD_MAX_MEMORY_SIZE = 10 * 1024 * 1024
 
 # =============================================================================
 # Django REST Framework
@@ -182,9 +199,11 @@ REST_FRAMEWORK = {
 SIMPLE_JWT = {
     "ACCESS_TOKEN_LIFETIME": timedelta(minutes=15),
     "REFRESH_TOKEN_LIFETIME": timedelta(days=7),
-    # Disable rotation for cookie-based auth (prevents multi-tab race conditions)
-    "ROTATE_REFRESH_TOKENS": False,
-    "BLACKLIST_AFTER_ROTATION": False,
+    # Rotate the refresh token on every use and blacklist the old one, so a
+    # leaked refresh token is usable at most once. Minor multi-tab race is
+    # acceptable (frontend redirects to /login on a refresh 401).
+    "ROTATE_REFRESH_TOKENS": True,
+    "BLACKLIST_AFTER_ROTATION": True,
     "UPDATE_LAST_LOGIN": False,
     "ALGORITHM": "HS256",
     "SIGNING_KEY": os.environ.get("JWT_SIGNING_KEY", SECRET_KEY),
@@ -197,6 +216,26 @@ SIMPLE_JWT = {
 JWT_COOKIE_SECURE = not DEBUG
 JWT_COOKIE_SAMESITE = "Lax"
 JWT_COOKIE_PATH = "/"
+
+# =============================================================================
+# Production security headers (active when DEBUG is off)
+# =============================================================================
+
+if not DEBUG:
+    SESSION_COOKIE_SECURE = True
+    CSRF_COOKIE_SECURE = True
+    SECURE_SSL_REDIRECT = True
+    # Behind the Apache reverse proxy that terminates TLS.
+    SECURE_PROXY_SSL_HEADER = ("HTTP_X_FORWARDED_PROTO", "https")
+    SECURE_HSTS_SECONDS = 31536000
+    SECURE_HSTS_INCLUDE_SUBDOMAINS = True
+    SECURE_HSTS_PRELOAD = True
+    SECURE_CONTENT_TYPE_NOSNIFF = True
+    X_FRAME_OPTIONS = "DENY"
+    # Comma-separated prod origins, e.g. https://costco.example.com
+    CSRF_TRUSTED_ORIGINS = [
+        o for o in os.environ.get("CSRF_TRUSTED_ORIGINS", "").split(",") if o
+    ]
 
 # =============================================================================
 # Email

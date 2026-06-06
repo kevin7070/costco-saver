@@ -15,5 +15,6 @@ urlpatterns = [
 ]
 
 if settings.DEBUG:
+    # Static assets only — receipt media is served by an authorized view
+    # (ReceiptViewSet.image), never by an unauthenticated static handler.
     urlpatterns += static(settings.STATIC_URL, document_root=settings.STATIC_ROOT)
-    urlpatterns += static(settings.MEDIA_URL, document_root=settings.MEDIA_ROOT)

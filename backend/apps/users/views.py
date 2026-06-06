@@ -6,6 +6,7 @@ from rest_framework.permissions import AllowAny, IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework_simplejwt.exceptions import InvalidToken, TokenError
+from rest_framework_simplejwt.serializers import TokenRefreshSerializer
 from rest_framework_simplejwt.tokens import RefreshToken
 
 from .serializers import (
@@ -80,32 +81,27 @@ class RefreshView(APIView):
     permission_classes = [AllowAny]
 
     def post(self, request):
-        refresh_token = (
-            request.COOKIES.get("refresh_token")
-            or request.data.get("refresh")
-        )
-        if not refresh_token:
+        raw = request.COOKIES.get("refresh_token") or request.data.get("refresh")
+        if not raw:
             return Response(
                 {"detail": "No refresh token provided."},
                 status=status.HTTP_401_UNAUTHORIZED,
             )
+        # TokenRefreshSerializer handles rotation + blacklist-after-rotation per
+        # SIMPLE_JWT settings: validated_data carries a fresh "refresh" and the
+        # old one is blacklisted, so a leaked refresh token is single-use.
+        serializer = TokenRefreshSerializer(data={"refresh": raw})
         try:
-            token = RefreshToken(refresh_token)
-        except TokenError as e:
-            raise InvalidToken(e.args[0])
-
-        new_access = str(token.access_token)
-        response = Response({"access": new_access}, status=status.HTTP_200_OK)
-        # Overwrite access cookie only; refresh stays the same (no rotation)
-        response.set_cookie(
-            "access_token",
-            new_access,
-            httponly=True,
-            secure=settings.JWT_COOKIE_SECURE,
-            samesite=settings.JWT_COOKIE_SAMESITE,
-            path=settings.JWT_COOKIE_PATH,
-            max_age=int(settings.SIMPLE_JWT["ACCESS_TOKEN_LIFETIME"].total_seconds()),
-        )
+            serializer.is_valid(raise_exception=True)
+        except (InvalidToken, TokenError):
+            return Response(
+                {"detail": "Token is invalid or expired."},
+                status=status.HTTP_401_UNAUTHORIZED,
+            )
+        data = serializer.validated_data
+        new_refresh = data.get("refresh", raw)  # rotated token, or same if off
+        response = Response({"access": data["access"]}, status=status.HTTP_200_OK)
+        _set_jwt_cookies(response, data["access"], new_refresh)
         return response
 
 

@@ -19,7 +19,9 @@ class ReceiptSerializer(serializers.ModelSerializer):
     image = serializers.SerializerMethodField()
 
     def get_image(self, obj):
-        return obj.image.url if obj.image else None
+        # Relative URL to the authorized image action; same-origin via the
+        # frontend proxy (never expose the backend host).
+        return f"/api/v1/receipts/{obj.pk}/image/" if obj.image else None
 
     class Meta:
         model = Receipt
@@ -31,10 +33,34 @@ class ReceiptSerializer(serializers.ModelSerializer):
         read_only_fields = ["parse_status", "parse_error", "created_at"]
 
 
+ALLOWED_UPLOAD_TYPES = {"image/jpeg", "image/png", "application/pdf"}
+MAX_UPLOAD_BYTES = 10 * 1024 * 1024  # 10 MB
+# Magic-byte prefixes for the allowed types (JPEG SOI, PNG signature, PDF).
+ALLOWED_MAGIC = (b"\xff\xd8", b"\x89PNG", b"%PDF")
+
+
 class ReceiptUploadSerializer(serializers.ModelSerializer):
     class Meta:
         model = Receipt
         fields = ["id", "image"]
+
+    def validate_image(self, image):
+        if image.size > MAX_UPLOAD_BYTES:
+            raise serializers.ValidationError("File too large (max 10 MB).")
+        if getattr(image, "content_type", "") not in ALLOWED_UPLOAD_TYPES:
+            raise serializers.ValidationError(
+                "Unsupported file type. Upload a JPEG, PNG, or PDF."
+            )
+        # Check magic bytes, not just the client content-type — an SVG/script
+        # renamed with an image content-type would otherwise slip through and
+        # become stored XSS (media is served same-origin).
+        head = image.read(8)
+        image.seek(0)
+        if not any(head.startswith(m) for m in ALLOWED_MAGIC):
+            raise serializers.ValidationError(
+                "File contents do not match an image or PDF."
+            )
+        return image
 
 
 class LineItemReviewSerializer(serializers.ModelSerializer):

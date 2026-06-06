@@ -1,3 +1,4 @@
+from django.http import FileResponse, Http404
 from rest_framework import mixins, status, viewsets
 from rest_framework.decorators import action
 from rest_framework.response import Response
@@ -41,3 +42,18 @@ class ReceiptViewSet(
         serializer.save()
         receipt.refresh_from_db()
         return Response(ReceiptSerializer(receipt).data)
+
+    @action(detail=True, methods=["get"])
+    def image(self, request, pk=None):
+        """Serve the receipt image to its owner only.
+
+        get_object() runs against the user-scoped queryset, so a cross-user id
+        404s — this is the only authorized path to a receipt file (replaces the
+        unauthenticated static media handler).
+        """
+        receipt = self.get_object()
+        if not receipt.image:
+            raise Http404
+        response = FileResponse(receipt.image.open("rb"))
+        response["X-Content-Type-Options"] = "nosniff"
+        return response

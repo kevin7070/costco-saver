@@ -87,3 +87,48 @@ def test_confirm_corrects_and_sets_confirmed(user_client, user):
     items = list(r.line_items.all())
     assert len(items) == 1
     assert items[0].item_number == "1422972"  # user corrected
+
+
+def test_image_action_serves_own_receipt(user_client):
+    img = SimpleUploadedFile(
+        "r.jpg", b"\xff\xd8\xff\xe0\x00\x10JFIF", content_type="image/jpeg"
+    )
+    with patch("apps.receipts.tasks.parse_receipt.delay"):
+        up = user_client.post("/api/v1/receipts/", {"image": img}, format="multipart")
+    rid = up.json()["id"]
+    resp = user_client.get(f"/api/v1/receipts/{rid}/image/")
+    assert resp.status_code == 200
+
+
+def test_image_action_blocks_cross_user(user_client, admin_user):
+    # Receipt belongs to admin_user; the plain user must not reach its image.
+    r = Receipt.objects.create(user=admin_user, image="receipts/secret.jpg")
+    resp = user_client.get(f"/api/v1/receipts/{r.id}/image/")
+    assert resp.status_code == 404  # user-scoped queryset hides others' receipts
+
+
+def test_image_action_requires_auth(api_client, user):
+    r = Receipt.objects.create(user=user, image="receipts/x.jpg")
+    resp = api_client.get(f"/api/v1/receipts/{r.id}/image/")
+    assert resp.status_code == 401
+
+
+def test_upload_rejects_svg_content_type(user_client):
+    svg = SimpleUploadedFile(
+        "x.svg",
+        b"<svg><script>alert(1)</script></svg>",
+        content_type="image/svg+xml",
+    )
+    resp = user_client.post("/api/v1/receipts/", {"image": svg}, format="multipart")
+    assert resp.status_code == 400
+
+
+def test_upload_rejects_disguised_svg(user_client):
+    # SVG bytes but claims an allowed content-type — magic-byte check catches it.
+    svg = SimpleUploadedFile(
+        "x.png",
+        b"<svg><script>alert(1)</script></svg>",
+        content_type="image/png",
+    )
+    resp = user_client.post("/api/v1/receipts/", {"image": svg}, format="multipart")
+    assert resp.status_code == 400

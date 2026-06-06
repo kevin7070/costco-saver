@@ -73,6 +73,9 @@ jobs:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
           SECRET_KEY: ci-test-secret-key
           JWT_SIGNING_KEY: ci-test-jwt-key
+          # DEBUG default is now False (fail-secure); tests run with it on so the
+          # prod-only SECURE_SSL_REDIRECT doesn't 301 the http test client.
+          DEBUG: "True"
         run: make test
 
   frontend:
