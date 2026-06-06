@@ -170,16 +170,17 @@ class TestCookieAuth:
     def test_stale_cookie_does_not_block_public_endpoint(self, api_client):
         # A leftover/invalid access_token cookie must not 401 register (AllowAny).
         api_client.cookies["access_token"] = "invalid.token.value"
-        resp = api_client.post(
-            reverse("auth:register"),
-            {
-                "email": "fresh@example.com",
-                "password": "S3curePass!9",
-                "first_name": "F",
-                "last_name": "R",
-            },
-            format="json",
-        )
+        with patch("apps.users.tasks.send_verification_email.delay"):
+            resp = api_client.post(
+                reverse("auth:register"),
+                {
+                    "email": "fresh@example.com",
+                    "password": "S3curePass!9",
+                    "first_name": "F",
+                    "last_name": "R",
+                },
+                format="json",
+            )
         assert resp.status_code == 202
 
     def test_stale_cookie_still_401s_protected_endpoint(self, api_client):
