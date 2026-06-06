@@ -24,6 +24,8 @@ class User(AbstractUser):
         choices=UserType.choices,
         default=UserType.USER,
     )
+    # Email ownership confirmed via the verification link.
+    email_verified = models.BooleanField(default=False)
 
     phone = models.CharField(max_length=20, blank=True)
     avatar = models.ImageField(upload_to="avatars/", blank=True, null=True)

@@ -21,6 +21,15 @@ register(UserFactory)
 register(ItemFactory)
 
 
+@pytest.fixture(autouse=True)
+def _clear_throttle_cache():
+    """Reset DRF throttle counters between tests (they share a cache)."""
+    from django.core.cache import cache
+
+    cache.clear()
+    yield
+
+
 @pytest.fixture
 def api_client():
     """Unauthenticated API client."""

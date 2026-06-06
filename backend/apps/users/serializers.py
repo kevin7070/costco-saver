@@ -5,6 +5,7 @@ from django.contrib.auth.password_validation import validate_password
 from rest_framework import serializers
 
 from .models import User
+from .validators import validate_not_disposable
 
 
 class UserSerializer(serializers.ModelSerializer):
@@ -45,6 +46,10 @@ class LoginSerializer(serializers.Serializer):
             raise serializers.ValidationError({"detail": "Invalid email or password."})
         if not user.is_active:
             raise serializers.ValidationError({"detail": "Account is inactive."})
+        if not user.email_verified:
+            raise serializers.ValidationError(
+                {"detail": "Please verify your email before logging in."}
+            )
         attrs["user"] = user
         return attrs
 
@@ -65,21 +70,34 @@ class RegisterSerializer(serializers.Serializer):
     password = serializers.CharField(write_only=True)
     first_name = serializers.CharField(max_length=150)
     last_name = serializers.CharField(max_length=150)
+    # Honeypot: hidden in the UI; only bots fill it. Handled silently in the view.
+    website = serializers.CharField(required=False, allow_blank=True, default="")
 
     def validate_email(self, value):
+        # Do NOT reveal whether the email exists (enumeration); the view responds
+        # neutrally either way. Only block disposable domains here.
         email = value.lower().strip()
-        if User.objects.filter(email=email).exists():
-            raise serializers.ValidationError("A user with this email already exists.")
+        validate_not_disposable(email)
         return email
 
     def validate_password(self, value):
         validate_password(value)
         return value
 
-    def create(self, validated_data):
-        return User.objects.create_user(
-            email=validated_data["email"],
-            password=validated_data["password"],
-            first_name=validated_data["first_name"],
-            last_name=validated_data["last_name"],
-        )
+
+class ResendVerificationSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ForgotPasswordSerializer(serializers.Serializer):
+    email = serializers.EmailField()
+
+
+class ResetPasswordSerializer(serializers.Serializer):
+    uid = serializers.CharField()
+    token = serializers.CharField()
+    new_password = serializers.CharField(write_only=True)
+
+    def validate_new_password(self, value):
+        validate_password(value)
+        return value

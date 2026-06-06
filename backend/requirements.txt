@@ -12,6 +12,8 @@ openai>=1.40
 PyMuPDF>=1.24
 django-filter~=24.3
 django-axes~=6.5
+# Block throwaway/disposable email domains at registration (maintained list).
+disposable-email-domains>=0.0.100
 
 # Background tasks / scheduling.
 # Receipt parsing needs an on-demand, single-concurrency, retryable queue.

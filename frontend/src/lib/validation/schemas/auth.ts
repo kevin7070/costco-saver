@@ -23,6 +23,7 @@ export const registerSchema = z
     email: emailSchema,
     password: z.string().min(8, "Password must be at least 8 characters"),
     confirm_password: requiredString("Password confirmation"),
+    website: z.string().optional().default(""), // honeypot — must stay empty
   })
   .refine((data) => data.password === data.confirm_password, {
     message: "Passwords do not match",
@@ -30,3 +31,21 @@ export const registerSchema = z
   });
 
 export type RegisterForm = z.infer<typeof registerSchema>;
+
+export const forgotPasswordSchema = z.object({
+  email: emailSchema,
+});
+
+export type ForgotPasswordForm = z.infer<typeof forgotPasswordSchema>;
+
+export const resetPasswordSchema = z
+  .object({
+    new_password: z.string().min(8, "Password must be at least 8 characters"),
+    confirm_password: requiredString("Password confirmation"),
+  })
+  .refine((data) => data.new_password === data.confirm_password, {
+    message: "Passwords do not match",
+    path: ["confirm_password"],
+  });
+
+export type ResetPasswordForm = z.infer<typeof resetPasswordSchema>;

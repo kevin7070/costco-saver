@@ -1,7 +1,6 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { useApi, ApiError } from "@/hooks/useApi";
@@ -11,7 +10,6 @@ const inputClass =
   "block w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900";
 
 export default function RegisterPage() {
-  const router = useRouter();
   const { fetchApi } = useApi();
   const [form, setForm] = useState({
     first_name: "",
@@ -19,9 +17,11 @@ export default function RegisterPage() {
     email: "",
     password: "",
     confirm_password: "",
+    website: "", // honeypot
   });
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
+  const [submitted, setSubmitted] = useState(false);
 
   function update(field: keyof typeof form) {
     return (e: React.ChangeEvent<HTMLInputElement>) =>
@@ -31,16 +31,13 @@ export default function RegisterPage() {
   async function handleSubmit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
-
     const parsed = registerSchema.safeParse(form);
     if (!parsed.success) {
       setError(parsed.error.issues[0]?.message ?? "Invalid input");
       return;
     }
-
     setLoading(true);
     try {
-      // confirm_password is client-side only; send just what the API expects.
       await fetchApi("/auth/register/", {
         method: "POST",
         body: {
@@ -48,14 +45,38 @@ export default function RegisterPage() {
           last_name: parsed.data.last_name,
           email: parsed.data.email,
           password: parsed.data.password,
+          website: parsed.data.website,
         },
       });
-      router.push("/dashboard");
+      // Enumeration-safe: the API returns the same 202 whether the email is new
+      // or existing. Show "check your inbox" either way; no auto-login.
+      setSubmitted(true);
     } catch (err) {
       setError(err instanceof ApiError ? err.message : "Network error");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (submitted) {
+    return (
+      <main className="flex min-h-screen items-center justify-center p-6">
+        <div className="w-full max-w-sm rounded-lg border border-zinc-200 p-6 text-center dark:border-zinc-800">
+          <h1 className="mb-2 text-2xl font-semibold">Check your inbox</h1>
+          <p className="text-sm text-zinc-600 dark:text-zinc-400">
+            If that email is new, we sent a verification link to{" "}
+            <strong>{form.email}</strong>. Click it to activate your account, then
+            log in.
+          </p>
+          <Link
+            href="/login"
+            className="mt-6 inline-block text-sm font-medium text-zinc-900 underline dark:text-white"
+          >
+            Back to log in
+          </Link>
+        </div>
+      </main>
+    );
   }
 
   return (
@@ -74,6 +95,19 @@ export default function RegisterPage() {
             {error}
           </div>
         )}
+
+        {/* Honeypot: positioned off-screen; real users never fill it, bots do. */}
+        <div aria-hidden="true" className="absolute left-[-9999px] top-[-9999px]">
+          <label htmlFor="website">Website</label>
+          <input
+            id="website"
+            type="text"
+            tabIndex={-1}
+            autoComplete="off"
+            value={form.website}
+            onChange={update("website")}
+          />
+        </div>
 
         <div className="mb-4 grid grid-cols-2 gap-3">
           <div>

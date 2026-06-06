@@ -184,6 +184,7 @@ REST_FRAMEWORK = {
     ],
     "DEFAULT_THROTTLE_RATES": {
         "auth_login": "10/minute",
+        "register": "5/hour",
         "password_reset": "3/hour",
         "password_change": "2/hour",
         "profile_update": "2/hour",
@@ -240,6 +241,9 @@ if not DEBUG:
 # =============================================================================
 # Email
 # =============================================================================
+
+# Base URL of the frontend, used to build links in transactional emails.
+FRONTEND_URL = os.environ.get("FRONTEND_URL", "http://localhost:9100")
 
 if os.environ.get("EMAIL_HOST"):
     EMAIL_BACKEND = "django.core.mail.backends.smtp.EmailBackend"

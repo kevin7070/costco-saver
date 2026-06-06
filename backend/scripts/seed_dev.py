@@ -23,6 +23,7 @@ REGULAR_USERS = [
 def _seed(email, password, first_name, last_name, *, admin=False):
     defaults = {"first_name": first_name, "last_name": last_name}
     defaults["user_type"] = "admin" if admin else "user"
+    defaults["email_verified"] = True  # dev accounts are pre-verified
     if admin:
         defaults["is_staff"] = True
         defaults["is_superuser"] = True
