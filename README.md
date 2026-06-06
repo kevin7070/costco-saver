@@ -5,7 +5,7 @@ while you can still claim the difference.
 
 Create an account and upload a receipt to get started.
 
-> 🚧 Early development (v0.4.0).
+> 🚧 Early development (v0.5.0).
 
 ## What it does
 
@@ -19,6 +19,9 @@ Create an account and upload a receipt to get started.
 
 Price lookups go through a pluggable provider; the bundled default is a no-op, so
 a real price source is supplied by the deployment environment.
+
+Accounts are protected with email verification, password reset, and optional
+two-factor authentication (TOTP).
 
 ## Stack
 
