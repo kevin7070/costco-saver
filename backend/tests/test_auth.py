@@ -277,3 +277,91 @@ class TestPasswordReset:
             format="json",
         )
         assert resp.status_code == 400
+
+
+@pytest.mark.django_db
+class TestTwoFactor:
+    def _device(self, user, confirmed=True):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        return TOTPDevice.objects.create(
+            user=user, name="default", confirmed=confirmed
+        )
+
+    def _code(self, device):
+        from django_otp.oath import totp
+
+        return str(totp(device.bin_key)).zfill(6)
+
+    def test_setup_returns_otpauth_url(self, user_client):
+        resp = user_client.post(reverse("auth:2fa-setup"))
+        assert resp.status_code == 200
+        assert resp.json()["otpauth_url"].startswith("otpauth://")
+
+    def test_confirm_enables_device(self, user_client, user):
+        device = self._device(user, confirmed=False)
+        resp = user_client.post(
+            reverse("auth:2fa-confirm"),
+            {"code": self._code(device)},
+            format="json",
+        )
+        assert resp.status_code == 200
+        device.refresh_from_db()
+        assert device.confirmed is True
+
+    def test_login_with_2fa_requires_second_step(self, api_client, user):
+        self._device(user, confirmed=True)
+        resp = api_client.post(
+            reverse("auth:login"),
+            {"email": user.email, "password": "testpass123"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body.get("requires_2fa") is True
+        assert body.get("pre_auth_token")
+        assert "access_token" not in resp.cookies  # no JWT until verified
+
+    def test_verify_completes_login(self, api_client, user):
+        device = self._device(user, confirmed=True)
+        login = api_client.post(
+            reverse("auth:login"),
+            {"email": user.email, "password": "testpass123"},
+            format="json",
+        )
+        resp = api_client.post(
+            reverse("auth:2fa-verify"),
+            {
+                "pre_auth_token": login.json()["pre_auth_token"],
+                "code": self._code(device),
+            },
+            format="json",
+        )
+        assert resp.status_code == 200
+        assert "access_token" in resp.cookies
+
+    def test_verify_bad_code_rejected(self, api_client, user):
+        self._device(user, confirmed=True)
+        login = api_client.post(
+            reverse("auth:login"),
+            {"email": user.email, "password": "testpass123"},
+            format="json",
+        )
+        resp = api_client.post(
+            reverse("auth:2fa-verify"),
+            {"pre_auth_token": login.json()["pre_auth_token"], "code": "000000"},
+            format="json",
+        )
+        assert resp.status_code == 400
+
+    def test_disable_removes_device(self, user_client, user):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        self._device(user, confirmed=True)
+        resp = user_client.post(
+            reverse("auth:2fa-disable"),
+            {"password": "testpass123"},
+            format="json",
+        )
+        assert resp.status_code == 200
+        assert not TOTPDevice.objects.filter(user=user).exists()

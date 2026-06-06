@@ -4,6 +4,12 @@ from django.conf import settings
 from django.conf.urls.static import static
 from django.contrib import admin
 from django.urls import include, path
+from django_otp.admin import OTPAdminSite
+
+# Django admin requires a verified TOTP device. Superusers enroll via the API
+# 2FA setup (POST /api/v1/auth/2fa/setup/ + confirm); admin login then prompts
+# for the code.
+admin.site.__class__ = OTPAdminSite
 
 urlpatterns = [
     path("admin/", admin.site.urls),

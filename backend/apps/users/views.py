@@ -19,9 +19,16 @@ from .serializers import (
     RegisterSerializer,
     ResendVerificationSerializer,
     ResetPasswordSerializer,
+    TwoFactorConfirmSerializer,
+    TwoFactorDisableSerializer,
+    TwoFactorVerifySerializer,
     UserSerializer,
 )
-from .tokens import read_email_verify_token
+from .tokens import (
+    make_pre_auth_token,
+    read_email_verify_token,
+    read_pre_auth_token,
+)
 
 
 def _set_jwt_cookies(response, access_token: str, refresh_token: str) -> None:
@@ -45,6 +52,19 @@ def _set_jwt_cookies(response, access_token: str, refresh_token: str) -> None:
     )
 
 
+def _has_confirmed_totp(user) -> bool:
+    from django_otp.plugins.otp_totp.models import TOTPDevice
+
+    return TOTPDevice.objects.filter(user=user, confirmed=True).exists()
+
+
+def _login_response(user) -> Response:
+    refresh = RefreshToken.for_user(user)
+    response = Response({"user": UserSerializer(user).data}, status=status.HTTP_200_OK)
+    _set_jwt_cookies(response, str(refresh.access_token), str(refresh))
+    return response
+
+
 class LoginView(APIView):
     permission_classes = [AllowAny]
     throttle_scope = "auth_login"
@@ -55,15 +75,13 @@ class LoginView(APIView):
         serializer.is_valid(raise_exception=True)
         user = serializer.validated_data["user"]
 
-        refresh = RefreshToken.for_user(user)
-        response = Response(
-            {
-                "user": UserSerializer(user).data,
-            },
-            status=status.HTTP_200_OK,
-        )
-        _set_jwt_cookies(response, str(refresh.access_token), str(refresh))
-        return response
+        # With a confirmed TOTP device, defer JWT until the second step.
+        if _has_confirmed_totp(user):
+            return Response(
+                {"requires_2fa": True, "pre_auth_token": make_pre_auth_token(user.pk)},
+                status=status.HTTP_200_OK,
+            )
+        return _login_response(user)
 
 
 class LogoutView(APIView):
@@ -256,3 +274,83 @@ class ResetPasswordView(APIView):
         except Exception:  # noqa: BLE001 — axes disabled in tests
             pass
         return Response({"detail": "Password reset. You can now log in."})
+
+
+class TwoFactorSetupView(APIView):
+    """Start enrollment: create an unconfirmed TOTP device, return its otpauth URI."""
+
+    permission_classes = [IsAuthenticated]
+    throttle_scope = "password_change"
+
+    def post(self, request):
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        # Drop any prior pending setup, then issue a fresh secret.
+        TOTPDevice.objects.filter(user=request.user, confirmed=False).delete()
+        device = TOTPDevice.objects.create(
+            user=request.user, name="default", confirmed=False
+        )
+        return Response({"otpauth_url": device.config_url})
+
+
+class TwoFactorConfirmView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = TwoFactorConfirmSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        device = TOTPDevice.objects.filter(user=request.user, confirmed=False).first()
+        if device is None:
+            return Response(
+                {"detail": "No pending 2FA setup. Start setup first."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        if not device.verify_token(serializer.validated_data["code"]):
+            return Response({"detail": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+        device.confirmed = True
+        device.save()
+        return Response({"detail": "Two-factor authentication enabled."})
+
+
+class TwoFactorDisableView(APIView):
+    permission_classes = [IsAuthenticated]
+
+    def post(self, request):
+        serializer = TwoFactorDisableSerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        if not request.user.check_password(serializer.validated_data["password"]):
+            return Response(
+                {"detail": "Password is incorrect."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        TOTPDevice.objects.filter(user=request.user).delete()
+        return Response({"detail": "Two-factor authentication disabled."})
+
+
+class TwoFactorVerifyView(APIView):
+    """Second login step: pre-auth token + TOTP code -> JWT."""
+
+    permission_classes = [AllowAny]
+    throttle_scope = "auth_login"
+
+    def post(self, request):
+        serializer = TwoFactorVerifySerializer(data=request.data)
+        serializer.is_valid(raise_exception=True)
+        uid = read_pre_auth_token(serializer.validated_data["pre_auth_token"])
+        User = get_user_model()
+        user = User.objects.filter(pk=uid).first() if uid else None
+        if user is None:
+            return Response(
+                {"detail": "Invalid or expired session. Log in again."},
+                status=status.HTTP_400_BAD_REQUEST,
+            )
+        from django_otp.plugins.otp_totp.models import TOTPDevice
+
+        device = TOTPDevice.objects.filter(user=user, confirmed=True).first()
+        if device is None or not device.verify_token(serializer.validated_data["code"]):
+            return Response({"detail": "Invalid code."}, status=status.HTTP_400_BAD_REQUEST)
+        return _login_response(user)

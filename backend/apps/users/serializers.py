@@ -101,3 +101,16 @@ class ResetPasswordSerializer(serializers.Serializer):
     def validate_new_password(self, value):
         validate_password(value)
         return value
+
+
+class TwoFactorConfirmSerializer(serializers.Serializer):
+    code = serializers.CharField()
+
+
+class TwoFactorDisableSerializer(serializers.Serializer):
+    password = serializers.CharField(write_only=True)
+
+
+class TwoFactorVerifySerializer(serializers.Serializer):
+    pre_auth_token = serializers.CharField()
+    code = serializers.CharField()

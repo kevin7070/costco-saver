@@ -118,6 +118,12 @@ export default function DashboardLayout({
             >
               Items
             </Link>
+            <Link
+              href="/dashboard/security"
+              className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            >
+              Security
+            </Link>
           </div>
           <div className="flex items-center gap-3">
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
