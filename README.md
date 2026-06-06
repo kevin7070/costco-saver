@@ -3,7 +3,9 @@
 Keep track of what you bought at Costco and get alerted when the price drops
 while you can still claim the difference.
 
-> 🚧 Early development (v0.3.0).
+Create an account and upload a receipt to get started.
+
+> 🚧 Early development (v0.4.0).
 
 ## What it does
 
