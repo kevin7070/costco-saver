@@ -61,6 +61,18 @@ jobs:
           .venv/bin/pip install --upgrade pip
           .venv/bin/pip install -r requirements.txt
 
+      # Fail if a model change has no migration — with multiple contributors this
+      # catches a forgotten migration before it breaks main. (Divergent migration
+      # leaves are additionally caught by `make test`, which runs migrate.)
+      - name: Check for missing migrations
+        working-directory: backend
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/test_db
+          SECRET_KEY: ci-test-secret-key
+          JWT_SIGNING_KEY: ci-test-jwt-key
+          DEBUG: "True"
+        run: .venv/bin/python manage.py makemigrations --check --dry-run
+
       # All gate steps below invoke Makefile targets so the gate definition
       # stays in the Makefile, not split across CI and local. Add guards
       # to `make check` and they auto-gate CI without editing this file.
@@ -102,3 +114,30 @@ jobs:
           NODE_OPTIONS: "--max-old-space-size=4096"
         run: npm run build
         timeout-minutes: 10
+
+  # Secret-leak gate on the PR diff. Pattern list comes from the
+  # GREP_GATE_PATTERNS Actions secret (never hardcoded in this public repo).
+  grep-gate:
+    name: grep-gate
+    runs-on: ubuntu-latest
+    if: github.event_name == 'pull_request'
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - name: Scan PR diff for forbidden patterns
+        env:
+          GREP_GATE_PATTERNS: ${{ secrets.GREP_GATE_PATTERNS }}
+        run: |
+          if [ -z "${GREP_GATE_PATTERNS:-}" ]; then
+            echo "::error::GREP_GATE_PATTERNS secret is not set"; exit 1
+          fi
+          git fetch --no-tags origin "${{ github.event.pull_request.base.sha }}" || true
+          base="${{ github.event.pull_request.base.sha }}"
+          hits="$(git diff "$base" HEAD | grep -E '^\+' | grep -iE "$GREP_GATE_PATTERNS" || true)"
+          if [ -n "$hits" ]; then
+            echo "::error::grep-gate found forbidden pattern(s) in added lines"
+            echo "$hits"
+            exit 1
+          fi
+          echo "grep-gate clean"

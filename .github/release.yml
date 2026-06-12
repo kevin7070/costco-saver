@@ -1,0 +1,25 @@
+# GitHub auto-generated release notes config.
+# Releases are cut manually by the office maintainer (kevin7070):
+#   gh release create vX.Y.Z --generate-notes
+# Categories map to the PR `type:*` labels.
+changelog:
+  exclude:
+    labels:
+      - skip-changelog
+  categories:
+    - title: 🚀 Features
+      labels: ["type:feat"]
+    - title: 🐛 Fixes
+      labels: ["type:fix"]
+    - title: 🔧 Maintenance
+      labels:
+        - "type:chore"
+        - "type:refactor"
+        - "type:docs"
+        - "type:test"
+        - "type:ci"
+        - "type:build"
+        - "type:perf"
+        - "type:style"
+    - title: Other Changes
+      labels: ["*"]

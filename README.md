@@ -6,6 +6,9 @@ while you can still claim the difference.
 Create an account and upload a receipt to get started.
 
 > 🚧 Early development (v0.7.0).
+>
+> 🤝 Maintained by more than one contributor. **Do not commit to `main` directly** —
+> branch off, open a PR, and let CI pass before merge. `main` is protected.
 
 ## What it does
 
