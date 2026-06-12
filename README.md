@@ -5,7 +5,7 @@ while you can still claim the difference.
 
 Create an account and upload a receipt to get started.
 
-> 🚧 Early development (v0.5.0).
+> 🚧 Early development (v0.6.0).
 
 ## What it does
 
