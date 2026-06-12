@@ -15,9 +15,10 @@ from .services import create_receipt
 class ReceiptViewSet(
     mixins.ListModelMixin,
     mixins.RetrieveModelMixin,
+    mixins.DestroyModelMixin,
     viewsets.GenericViewSet,
 ):
-    """Upload, list, view, and confirm (review) the current user's receipts."""
+    """Upload, list, view, confirm (review), and delete the current user's receipts."""
 
     serializer_class = ReceiptSerializer
 
@@ -26,6 +27,23 @@ class ReceiptViewSet(
             Receipt.objects.filter(user=self.request.user)
             .prefetch_related("line_items")
         )
+
+    def destroy(self, request, *args, **kwargs):
+        """Delete a receipt (row + file) once it is the user's to remove.
+
+        Blocked while the AI is still in flight (queued/processing) and before
+        the data is confirmed (needs_review): only `confirmed`/`failed` receipts
+        are deletable. The post_delete signal removes the stored file.
+        """
+        receipt = self.get_object()  # user-scoped queryset → cross-user 404
+        if not receipt.user_can_delete:
+            return Response(
+                {"detail": "This receipt can't be deleted until processing is "
+                           "complete and the data is confirmed."},
+                status=status.HTTP_409_CONFLICT,
+            )
+        receipt.delete()
+        return Response(status=status.HTTP_204_NO_CONTENT)
 
     def create(self, request, *args, **kwargs):
         upload = ReceiptUploadSerializer(data=request.data)

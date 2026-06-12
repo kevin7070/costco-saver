@@ -1,9 +1,9 @@
 "use client";
 
-import { useParams } from "next/navigation";
+import { useParams, useRouter } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
-import { PageHeader } from "@/components/admin";
+import { ConfirmDialog, PageHeader } from "@/components/admin";
 import { Button } from "@/components/ui/catalyst/button";
 import { ApiError, useApi } from "@/hooks/useApi";
 
@@ -35,6 +35,7 @@ type Receipt = {
   parse_status: string;
   parse_error: string;
   line_items: LineItem[];
+  can_delete: boolean;
 };
 
 type Header = {
@@ -47,6 +48,7 @@ type Header = {
 
 export default function ReceiptDetailPage() {
   const params = useParams();
+  const router = useRouter();
   const id = params.id as string;
   const { fetchApi } = useApi();
 
@@ -62,6 +64,8 @@ export default function ReceiptDetailPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [showDelete, setShowDelete] = useState(false);
+  const [deleting, setDeleting] = useState(false);
 
   const load = useCallback(async () => {
     setLoading(true);
@@ -123,6 +127,19 @@ export default function ReceiptDetailPage() {
     }
   }
 
+  async function remove() {
+    setDeleting(true);
+    setError(null);
+    try {
+      await fetchApi(`/receipts/${id}/`, { method: "DELETE" });
+      router.push("/dashboard/receipts");
+    } catch (err) {
+      setError(err instanceof ApiError ? err.message : "Failed to delete receipt");
+      setShowDelete(false);
+      setDeleting(false);
+    }
+  }
+
   if (loading) return <div className="p-4 text-sm text-zinc-500">Loading…</div>;
   if (!receipt) return <div className="p-4 text-sm text-red-500">{error ?? "Not found"}</div>;
 
@@ -138,6 +155,13 @@ export default function ReceiptDetailPage() {
           { label: "Receipts", href: "/dashboard/receipts" },
           { label: `#${receipt.id}` },
         ]}
+        actions={
+          receipt.can_delete ? (
+            <Button color="red" type="button" onClick={() => setShowDelete(true)}>
+              Delete
+            </Button>
+          ) : undefined
+        }
       />
 
       {error && (
@@ -234,6 +258,17 @@ export default function ReceiptDetailPage() {
           )}
         </div>
       </div>
+
+      <ConfirmDialog
+        open={showDelete}
+        onClose={() => setShowDelete(false)}
+        onConfirm={remove}
+        loading={deleting}
+        variant="danger"
+        title="Delete this receipt?"
+        description="The receipt and its uploaded file are permanently removed. This can't be undone."
+        confirmLabel="Delete"
+      />
     </div>
   );
 }

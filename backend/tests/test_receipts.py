@@ -1,14 +1,18 @@
 """Tests for the receipts app (parser + Celery enqueue mocked)."""
 
+from datetime import timedelta
 from decimal import Decimal
 from unittest.mock import patch
 
 import pytest
+from django.core.files.storage import default_storage
 from django.core.files.uploadedfile import SimpleUploadedFile
+from django.utils import timezone
 
 from apps.parsers.base import StructuredLineItem, StructuredReceipt
 from apps.receipts.models import LineItem, Receipt
 from apps.receipts.services import apply_parse_result
+from apps.receipts.tasks import purge_expired_receipts
 
 pytestmark = pytest.mark.django_db
 
@@ -132,3 +136,88 @@ def test_upload_rejects_disguised_svg(user_client):
     )
     resp = user_client.post("/api/v1/receipts/", {"image": svg}, format="multipart")
     assert resp.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# Deletion gate, file cleanup, retention, per-user storage path
+# ---------------------------------------------------------------------------
+
+
+@pytest.mark.parametrize("status", ["confirmed", "failed"])
+def test_destroy_allowed_when_deletable(user_client, user, status):
+    r = Receipt.objects.create(user=user, image="x.jpg", parse_status=status)
+    resp = user_client.delete(f"/api/v1/receipts/{r.id}/")
+    assert resp.status_code == 204
+    assert not Receipt.objects.filter(pk=r.pk).exists()
+
+
+@pytest.mark.parametrize("status", ["queued", "processing", "needs_review"])
+def test_destroy_blocked_until_confirmed(user_client, user, status):
+    # In-flight (queued/processing) and unconfirmed (needs_review) can't be deleted.
+    r = Receipt.objects.create(user=user, image="x.jpg", parse_status=status)
+    resp = user_client.delete(f"/api/v1/receipts/{r.id}/")
+    assert resp.status_code == 409
+    assert Receipt.objects.filter(pk=r.pk).exists()
+
+
+def test_destroy_cross_user_404(user_client, admin_user):
+    r = Receipt.objects.create(user=admin_user, image="x.jpg", parse_status="confirmed")
+    resp = user_client.delete(f"/api/v1/receipts/{r.id}/")
+    assert resp.status_code == 404
+    assert Receipt.objects.filter(pk=r.pk).exists()
+
+
+def test_can_delete_flag_in_serializer(user_client, user):
+    ok = Receipt.objects.create(user=user, image="a.jpg", parse_status="confirmed")
+    no = Receipt.objects.create(user=user, image="b.jpg", parse_status="processing")
+    assert user_client.get(f"/api/v1/receipts/{ok.id}/").data["can_delete"] is True
+    assert user_client.get(f"/api/v1/receipts/{no.id}/").data["can_delete"] is False
+
+
+def test_upload_path_is_per_user(user, settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path)
+    r = Receipt.objects.create(
+        user=user, image=SimpleUploadedFile("Scan.pdf", b"%PDF-1.4 x")
+    )
+    assert r.image.name.startswith(f"home/{user.id}/receipts/")
+    assert r.image.name.endswith("Scan.pdf")
+
+
+def test_destroy_removes_stored_file(user_client, user, settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path)
+    r = Receipt.objects.create(
+        user=user,
+        image=SimpleUploadedFile("r.jpg", b"\xff\xd8jpeg", content_type="image/jpeg"),
+        parse_status="confirmed",
+    )
+    name = r.image.name
+    assert default_storage.exists(name)
+    resp = user_client.delete(f"/api/v1/receipts/{r.id}/")
+    assert resp.status_code == 204
+    assert not default_storage.exists(name)  # post_delete signal cleaned it up
+
+
+def test_purge_expired_receipts_drops_old_rows_and_files(user, settings, tmp_path):
+    settings.MEDIA_ROOT = str(tmp_path)
+    old = Receipt.objects.create(
+        user=user,
+        image=SimpleUploadedFile("old.jpg", b"\xff\xd8old", content_type="image/jpeg"),
+        parse_status="confirmed",
+    )
+    old_name = old.image.name
+    # created_at is auto_now_add; backdate past the retention window via queryset.
+    Receipt.objects.filter(pk=old.pk).update(
+        created_at=timezone.now() - timedelta(days=400)
+    )
+    recent = Receipt.objects.create(
+        user=user,
+        image=SimpleUploadedFile("new.jpg", b"\xff\xd8new", content_type="image/jpeg"),
+        parse_status="confirmed",
+    )
+
+    purged = purge_expired_receipts()
+
+    assert purged == 1
+    assert not Receipt.objects.filter(pk=old.pk).exists()
+    assert not default_storage.exists(old_name)  # file cleaned via post_delete
+    assert Receipt.objects.filter(pk=recent.pk).exists()  # still within retention

@@ -282,7 +282,15 @@ CELERY_BEAT_SCHEDULE = {
         "task": "apps.pricing.tasks.enqueue_due_checks",
         "schedule": crontab(hour=6, minute=0),
     },
+    "purge-expired-receipts": {
+        # Retention: drop receipts (rows + files) past RECEIPT_RETENTION_DAYS.
+        "task": "apps.receipts.tasks.purge_expired_receipts",
+        "schedule": crontab(hour=3, minute=0),
+    },
 }
+
+# How long a receipt (row + uploaded file) is kept before the daily purge.
+RECEIPT_RETENTION_DAYS = int(os.environ.get("RECEIPT_RETENTION_DAYS", "365"))
 
 # =============================================================================
 # Receipt parsing — self-hosted vision LLM endpoint

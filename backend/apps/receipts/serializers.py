@@ -23,12 +23,15 @@ class ReceiptSerializer(serializers.ModelSerializer):
         # frontend proxy (never expose the backend host).
         return f"/api/v1/receipts/{obj.pk}/image/" if obj.image else None
 
+    # Lets the UI show the delete control only when deletion is actually allowed.
+    can_delete = serializers.BooleanField(source="user_can_delete", read_only=True)
+
     class Meta:
         model = Receipt
         fields = [
             "id", "image", "store_location", "store_number", "purchase_date",
             "receipt_number", "invoice_number", "parse_status", "parse_error",
-            "created_at", "line_items",
+            "created_at", "line_items", "can_delete",
         ]
         read_only_fields = ["parse_status", "parse_error", "created_at"]
 

@@ -5,8 +5,11 @@
 """
 
 import logging
+from datetime import timedelta
 
 from celery import shared_task
+from django.conf import settings
+from django.utils import timezone
 
 from apps.parsers import get_parser
 
@@ -49,3 +52,22 @@ def parse_receipt(self, receipt_id: str) -> None:
         receipt.parse_error = str(exc)[:500]
         receipt.save(update_fields=["parse_status", "parse_error"])
         raise self.retry(exc=exc)
+
+
+@shared_task(name="apps.receipts.tasks.purge_expired_receipts")
+def purge_expired_receipts() -> int:
+    """Retention: delete receipts older than RECEIPT_RETENTION_DAYS.
+
+    `.delete()` cascades the line items and fires post_delete per receipt, so the
+    stored files are cleaned up too (apps.receipts.signals). Runs daily via beat.
+    """
+    cutoff = timezone.now() - timedelta(days=settings.RECEIPT_RETENTION_DAYS)
+    expired = Receipt.objects.filter(created_at__lt=cutoff)
+    count = expired.count()
+    if count:
+        expired.delete()
+        logger.info(
+            "purged %d receipt(s) older than %d days",
+            count, settings.RECEIPT_RETENTION_DAYS,
+        )
+    return count

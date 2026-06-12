@@ -7,7 +7,18 @@ and only becomes `confirmed` after the user checks it.
 
 from django.conf import settings
 from django.db import models
+from django.utils import timezone
 from uuid6 import uuid7
+
+
+def receipt_upload_path(instance: "Receipt", filename: str) -> str:
+    """Per-user, per-month folder: home/<user_uuid>/receipts/<yyyy-mm>/<file>.
+
+    Isolating each user's receipts under their own UUID keeps the media tree
+    tidy and makes per-user cleanup straightforward. The month comes from upload
+    time (created_at isn't assigned yet when the file is written).
+    """
+    return f"home/{instance.user_id}/receipts/{timezone.now():%Y-%m}/{filename}"
 
 
 class Receipt(models.Model):
@@ -18,11 +29,18 @@ class Receipt(models.Model):
         CONFIRMED = "confirmed", "Confirmed"
         FAILED = "failed", "Failed"
 
+    # Statuses at which the user may delete the receipt: processing is finished
+    # AND nothing is left in flight. `confirmed` = reviewed & accepted; `failed`
+    # = parsing gave up (nothing to confirm, must not strand the user). The
+    # in-flight states (`queued`/`processing`) and the not-yet-confirmed
+    # `needs_review` are intentionally NOT user-deletable.
+    USER_DELETABLE_STATUSES = frozenset({ParseStatus.CONFIRMED, ParseStatus.FAILED})
+
     id = models.UUIDField(primary_key=True, default=uuid7, editable=False)
     user = models.ForeignKey(
         settings.AUTH_USER_MODEL, on_delete=models.CASCADE, related_name="receipts"
     )
-    image = models.FileField(upload_to="receipts/%Y/%m/")
+    image = models.FileField(upload_to=receipt_upload_path)
     store_location = models.CharField(max_length=200, blank=True)
     store_number = models.CharField(max_length=20, blank=True)
     purchase_date = models.DateField(null=True, blank=True)
@@ -51,6 +69,11 @@ class Receipt(models.Model):
 
     def __str__(self) -> str:
         return f"Receipt {self.receipt_number or self.pk}"
+
+    @property
+    def user_can_delete(self) -> bool:
+        """True once processing is done and the data is confirmed (or failed)."""
+        return self.parse_status in self.USER_DELETABLE_STATUSES
 
 
 class LineItem(models.Model):
