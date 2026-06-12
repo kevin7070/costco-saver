@@ -200,7 +200,7 @@ export default function ReceiptDetailPage() {
                     <input className={`col-span-5 ${cellInput}`} value={it.raw_name} onChange={(e) => updateItem(i, { raw_name: e.target.value })} placeholder="Name" />
                     <input className={`col-span-3 ${cellInput}`} value={it.item_number} onChange={(e) => updateItem(i, { item_number: e.target.value })} placeholder="Item #" />
                     <input className={`col-span-2 ${cellInput}`} value={it.amount ?? ""} onChange={(e) => updateItem(i, { amount: e.target.value })} placeholder="$" />
-                    <select className={`col-span-1 ${cellInput} px-1`} value={it.item_type} onChange={(e) => updateItem(i, { item_type: e.target.value as LineItem["item_type"] })}>
+                    <select className={`col-span-1 ${cellInput.replace("px-2", "px-1")}`} value={it.item_type} onChange={(e) => updateItem(i, { item_type: e.target.value as LineItem["item_type"] })}>
                       <option value="product">P</option>
                       <option value="service">S</option>
                       <option value="discount">D</option>
