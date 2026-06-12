@@ -221,3 +221,44 @@ def test_purge_expired_receipts_drops_old_rows_and_files(user, settings, tmp_pat
     assert not Receipt.objects.filter(pk=old.pk).exists()
     assert not default_storage.exists(old_name)  # file cleaned via post_delete
     assert Receipt.objects.filter(pk=recent.pk).exists()  # still within retention
+
+
+def test_delete_prunes_empty_parent_dirs(user_client, user, settings, tmp_path):
+    import os
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    r = Receipt.objects.create(
+        user=user,
+        image=SimpleUploadedFile("r.jpg", b"\xff\xd8x", content_type="image/jpeg"),
+        parse_status="confirmed",
+    )
+    file_dir = os.path.dirname(os.path.join(str(tmp_path), r.image.name))
+    user_home = os.path.join(str(tmp_path), "home", str(user.id))
+    assert os.path.isdir(file_dir)
+
+    assert user_client.delete(f"/api/v1/receipts/{r.id}/").status_code == 204
+
+    # The file's dir and the now-empty per-user tree are pruned...
+    assert not os.path.exists(file_dir)
+    assert not os.path.exists(user_home)
+    # ...but MEDIA_ROOT itself is kept.
+    assert os.path.isdir(str(tmp_path))
+
+
+def test_delete_keeps_dir_with_other_files(user_client, user, settings, tmp_path):
+    # A user's month dir must survive while another receipt still lives in it.
+    import os
+
+    settings.MEDIA_ROOT = str(tmp_path)
+    keep = Receipt.objects.create(
+        user=user, image=SimpleUploadedFile("a.jpg", b"\xff\xd8a"), parse_status="confirmed"
+    )
+    drop = Receipt.objects.create(
+        user=user, image=SimpleUploadedFile("b.jpg", b"\xff\xd8b"), parse_status="confirmed"
+    )
+    keep_dir = os.path.dirname(os.path.join(str(tmp_path), keep.image.name))
+
+    assert user_client.delete(f"/api/v1/receipts/{drop.id}/").status_code == 204
+
+    assert os.path.isdir(keep_dir)  # not pruned — still holds `keep`'s file
+    assert default_storage.exists(keep.image.name)
