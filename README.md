@@ -5,7 +5,7 @@ while you can still claim the difference.
 
 Create an account and upload a receipt to get started.
 
-> 🚧 Early development (v0.6.0).
+> 🚧 Early development (v0.7.0).
 
 ## What it does
 
@@ -22,6 +22,10 @@ a real price source is supplied by the deployment environment.
 
 Accounts are protected with email verification, password reset, and optional
 two-factor authentication (TOTP).
+
+Each user's receipts are stored privately under their own account. You can
+delete a receipt once it has been processed, and receipts are removed
+automatically after a year.
 
 ## Stack
 
