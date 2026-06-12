@@ -2,10 +2,10 @@
 
 import { useState } from "react";
 
+import { Button } from "@/components/ui/catalyst/button";
+import { Field, Label } from "@/components/ui/catalyst/fieldset";
+import { Input } from "@/components/ui/catalyst/input";
 import { useApi, ApiError } from "@/hooks/useApi";
-
-const inputClass =
-  "block w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900";
 
 export default function SecurityPage() {
   const { fetchApi } = useApi();
@@ -79,13 +79,9 @@ export default function SecurityPage() {
         </p>
 
         {!otpauth ? (
-          <button
-            type="button"
-            onClick={startSetup}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-          >
+          <Button type="button" onClick={startSetup}>
             Enable 2FA
-          </button>
+          </Button>
         ) : (
           <form onSubmit={confirm}>
             <p className="mb-2 text-sm text-zinc-600 dark:text-zinc-400">
@@ -94,24 +90,19 @@ export default function SecurityPage() {
             <code className="mb-4 block break-all rounded-md bg-zinc-100 p-3 text-xs dark:bg-zinc-900">
               {otpauth}
             </code>
-            <label className="mb-1 block text-sm" htmlFor="code">
-              Code
-            </label>
-            <input
-              id="code"
-              inputMode="numeric"
-              autoComplete="one-time-code"
-              value={code}
-              onChange={(e) => setCode(e.target.value)}
-              required
-              className={`mb-4 ${inputClass}`}
-            />
-            <button
-              type="submit"
-              className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white dark:bg-white dark:text-zinc-900"
-            >
+            <Field>
+              <Label>Code</Label>
+              <Input
+                inputMode="numeric"
+                autoComplete="one-time-code"
+                value={code}
+                onChange={(e) => setCode(e.target.value)}
+                required
+              />
+            </Field>
+            <Button type="submit" className="mt-4">
               Confirm
-            </button>
+            </Button>
           </form>
         )}
       </section>
@@ -119,23 +110,18 @@ export default function SecurityPage() {
       <section className="rounded-lg border border-zinc-200 p-6 dark:border-zinc-800">
         <h2 className="mb-2 text-lg font-medium">Disable 2FA</h2>
         <form onSubmit={disable}>
-          <label className="mb-1 block text-sm" htmlFor="password">
-            Confirm your password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className={`mb-4 ${inputClass}`}
-          />
-          <button
-            type="submit"
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
-          >
+          <Field>
+            <Label>Confirm your password</Label>
+            <Input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              required
+            />
+          </Field>
+          <Button color="red" type="submit" className="mt-4">
             Disable 2FA
-          </button>
+          </Button>
         </form>
       </section>
     </div>

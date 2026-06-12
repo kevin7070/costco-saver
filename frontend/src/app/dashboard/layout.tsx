@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useCallback, useEffect, useRef, useState } from "react";
 
+import { Button } from "@/components/ui/catalyst/button";
 import { useApi, ApiError } from "@/hooks/useApi";
 
 // JWT access token TTL: 15 min. Refresh every 13 min proactively.
@@ -129,13 +130,9 @@ export default function DashboardLayout({
             <span className="text-sm text-zinc-600 dark:text-zinc-400">
               {user.full_name || user.email}
             </span>
-            <button
-              onClick={logout}
-              type="button"
-              className="rounded-md border border-zinc-300 px-3 py-1 text-sm dark:border-zinc-700"
-            >
+            <Button outline type="button" onClick={logout}>
               Log out
-            </button>
+            </Button>
           </div>
         </div>
       </header>

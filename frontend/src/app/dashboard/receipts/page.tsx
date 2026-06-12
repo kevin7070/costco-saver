@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -10,6 +9,7 @@ import {
   type Column,
   type SortDirection,
 } from "@/components/admin";
+import { Button } from "@/components/ui/catalyst/button";
 import { useApi } from "@/hooks/useApi";
 
 type Receipt = {
@@ -91,12 +91,7 @@ export default function ReceiptsListPage() {
         title="Receipts"
         breadcrumbs={[{ label: "Dashboard", href: "/dashboard" }, { label: "Receipts" }]}
         actions={
-          <Link
-            href="/dashboard/receipts/new"
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-zinc-900"
-          >
-            Upload receipt
-          </Link>
+          <Button href="/dashboard/receipts/new">Upload receipt</Button>
         }
       />
 
@@ -122,12 +117,7 @@ export default function ReceiptsListPage() {
             title="No receipts yet"
             description="Upload your first Costco receipt to start tracking."
             action={
-              <Link
-                href="/dashboard/receipts/new"
-                className="inline-block rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-zinc-900"
-              >
-                Upload receipt
-              </Link>
+              <Button href="/dashboard/receipts/new">Upload receipt</Button>
             }
           />
         }

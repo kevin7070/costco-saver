@@ -9,6 +9,7 @@ import {
   PageHeader,
   type ItemStatus,
 } from "@/components/admin";
+import { Button } from "@/components/ui/catalyst/button";
 import { ApiError, useApi } from "@/hooks/useApi";
 
 type Item = {
@@ -99,21 +100,13 @@ export default function ItemDetailPage() {
         ]}
         actions={
           <>
-            <button
-              type="button"
-              onClick={() => router.back()}
-              className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700"
-            >
+            <Button outline type="button" onClick={() => router.back()}>
               Back
-            </button>
+            </Button>
             {item.status === "active" && (
-              <button
-                type="button"
-                onClick={() => setShowArchive(true)}
-                className="rounded-md border border-zinc-300 px-3 py-1.5 text-sm dark:border-zinc-700"
-              >
+              <Button outline type="button" onClick={() => setShowArchive(true)}>
                 Archive
-              </button>
+              </Button>
             )}
           </>
         }

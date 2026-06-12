@@ -4,6 +4,7 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 
 import { PageHeader } from "@/components/admin";
+import { Button } from "@/components/ui/catalyst/button";
 
 export default function UploadReceiptPage() {
   const router = useRouter();
@@ -82,20 +83,12 @@ export default function UploadReceiptPage() {
         </p>
 
         <div className="flex gap-3">
-          <button
-            type="button"
-            onClick={() => router.back()}
-            className="rounded-md border border-zinc-300 px-4 py-2 text-sm dark:border-zinc-700"
-          >
+          <Button outline type="button" onClick={() => router.back()}>
             Cancel
-          </button>
-          <button
-            type="submit"
-            disabled={uploading}
-            className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-          >
+          </Button>
+          <Button type="submit" disabled={uploading}>
             {uploading ? "Uploading…" : "Upload"}
-          </button>
+          </Button>
         </div>
       </form>
     </div>

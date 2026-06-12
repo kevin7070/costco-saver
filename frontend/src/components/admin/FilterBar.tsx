@@ -2,6 +2,9 @@
 
 import { type ReactNode } from "react";
 
+import { Button } from "@/components/ui/catalyst/button";
+import { Input } from "@/components/ui/catalyst/input";
+
 interface FilterBarProps {
   search: string;
   onSearchChange: (value: string) => void;
@@ -21,22 +24,18 @@ export function FilterBar({
 }: FilterBarProps) {
   return (
     <div className="mb-4 flex flex-wrap items-center gap-3">
-      <input
+      <Input
         type="search"
         value={search}
         onChange={(e) => onSearchChange(e.target.value)}
         placeholder={searchPlaceholder}
-        className="w-full max-w-sm rounded-md border border-zinc-300 px-3 py-2 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+        className="max-w-sm"
       />
       {children}
       {hasActiveFilters && onClear && (
-        <button
-          type="button"
-          onClick={onClear}
-          className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
-        >
+        <Button plain type="button" onClick={onClear}>
           Clear all
-        </button>
+        </Button>
       )}
     </div>
   );

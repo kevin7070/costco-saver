@@ -5,9 +5,9 @@ import { useState } from "react";
 
 import { useApi, ApiError } from "@/hooks/useApi";
 import { registerSchema } from "@/lib/validation";
-
-const inputClass =
-  "block w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900";
+import { Button } from "@/components/ui/catalyst/button";
+import { Field, Label, Description } from "@/components/ui/catalyst/fieldset";
+import { Input } from "@/components/ui/catalyst/input";
 
 export default function RegisterPage() {
   const { fetchApi } = useApi();
@@ -109,77 +109,64 @@ export default function RegisterPage() {
           />
         </div>
 
-        <div className="mb-4 grid grid-cols-2 gap-3">
-          <div>
-            <label className="mb-1 block text-sm" htmlFor="first_name">
-              First name
-            </label>
-            <input
-              id="first_name"
-              value={form.first_name}
-              onChange={update("first_name")}
-              required
-              className={inputClass}
-            />
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <Field>
+              <Label>First name</Label>
+              <Input
+                value={form.first_name}
+                onChange={update("first_name")}
+                required
+              />
+            </Field>
+            <Field>
+              <Label>Last name</Label>
+              <Input
+                value={form.last_name}
+                onChange={update("last_name")}
+                required
+              />
+            </Field>
           </div>
-          <div>
-            <label className="mb-1 block text-sm" htmlFor="last_name">
-              Last name
-            </label>
-            <input
-              id="last_name"
-              value={form.last_name}
-              onChange={update("last_name")}
+
+          <Field>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={form.email}
+              onChange={update("email")}
               required
-              className={inputClass}
+              autoComplete="email"
             />
-          </div>
+          </Field>
+
+          <Field>
+            <Label>Password</Label>
+            <Input
+              type="password"
+              value={form.password}
+              onChange={update("password")}
+              required
+              autoComplete="new-password"
+            />
+            <Description>At least 8 characters.</Description>
+          </Field>
+
+          <Field>
+            <Label>Confirm password</Label>
+            <Input
+              type="password"
+              value={form.confirm_password}
+              onChange={update("confirm_password")}
+              required
+              autoComplete="new-password"
+            />
+          </Field>
         </div>
 
-        <label className="mb-1 block text-sm" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={form.email}
-          onChange={update("email")}
-          required
-          className={`mb-4 ${inputClass}`}
-        />
-
-        <label className="mb-1 block text-sm" htmlFor="password">
-          Password
-        </label>
-        <input
-          id="password"
-          type="password"
-          value={form.password}
-          onChange={update("password")}
-          required
-          className={`mb-1 ${inputClass}`}
-        />
-        <p className="mb-4 text-xs text-zinc-500">At least 8 characters.</p>
-
-        <label className="mb-1 block text-sm" htmlFor="confirm_password">
-          Confirm password
-        </label>
-        <input
-          id="confirm_password"
-          type="password"
-          value={form.confirm_password}
-          onChange={update("confirm_password")}
-          required
-          className={`mb-6 ${inputClass}`}
-        />
-
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-zinc-900 px-4 py-2 text-white outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-        >
+        <Button type="submit" disabled={loading} className="mt-6 w-full">
           {loading ? "Creating account..." : "Create account"}
-        </button>
+        </Button>
 
         <p className="mt-4 text-center text-sm text-zinc-600 dark:text-zinc-400">
           Already have an account?{" "}

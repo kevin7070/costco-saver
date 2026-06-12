@@ -5,9 +5,9 @@ import { useState } from "react";
 
 import { useApi, ApiError } from "@/hooks/useApi";
 import { forgotPasswordSchema } from "@/lib/validation";
-
-const inputClass =
-  "block w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900";
+import { Button } from "@/components/ui/catalyst/button";
+import { Field, Label } from "@/components/ui/catalyst/fieldset";
+import { Input } from "@/components/ui/catalyst/input";
 
 export default function ForgotPasswordPage() {
   const { fetchApi } = useApi();
@@ -73,24 +73,21 @@ export default function ForgotPasswordPage() {
             {error}
           </div>
         )}
-        <label className="mb-1 block text-sm" htmlFor="email">
-          Email
-        </label>
-        <input
-          id="email"
-          type="email"
-          value={email}
-          onChange={(e) => setEmail(e.target.value)}
-          required
-          className={`mb-6 ${inputClass}`}
-        />
-        <button
-          type="submit"
-          disabled={loading}
-          className="w-full rounded-md bg-zinc-900 px-4 py-2 text-white outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-        >
+        <div className="space-y-4">
+          <Field>
+            <Label>Email</Label>
+            <Input
+              type="email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              required
+              autoComplete="email"
+            />
+          </Field>
+        </div>
+        <Button type="submit" disabled={loading} className="mt-6 w-full">
           {loading ? "Sending…" : "Send reset link"}
-        </button>
+        </Button>
         <p className="mt-4 text-center text-sm text-zinc-600 dark:text-zinc-400">
           <Link
             href="/login"

@@ -4,11 +4,11 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 
+import { Button } from "@/components/ui/catalyst/button";
+import { Field, Label } from "@/components/ui/catalyst/fieldset";
+import { Input } from "@/components/ui/catalyst/input";
 import { useApi, ApiError } from "@/hooks/useApi";
 import { loginSchema } from "@/lib/validation";
-
-const inputClass =
-  "block w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -78,35 +78,31 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          <label className="mb-1 block text-sm" htmlFor="email">
-            Email
-          </label>
-          <input
-            id="email"
-            type="email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            required
-            className={`mb-4 ${inputClass}`}
-          />
-          <label className="mb-1 block text-sm" htmlFor="password">
-            Password
-          </label>
-          <input
-            id="password"
-            type="password"
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
-            required
-            className={`mb-6 ${inputClass}`}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-white outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-          >
+          <div className="space-y-4">
+            <Field>
+              <Label>Email</Label>
+              <Input
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+                autoComplete="email"
+              />
+            </Field>
+            <Field>
+              <Label>Password</Label>
+              <Input
+                type="password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+                autoComplete="current-password"
+              />
+            </Field>
+          </div>
+          <Button type="submit" disabled={loading} className="mt-6 w-full">
             {loading ? "Logging in..." : "Log in"}
-          </button>
+          </Button>
           <p className="mt-4 text-center text-sm text-zinc-600 dark:text-zinc-400">
             <Link
               href="/forgot-password"
@@ -139,25 +135,19 @@ export default function LoginPage() {
               {error}
             </div>
           )}
-          <label className="mb-1 block text-sm" htmlFor="code">
-            Code
-          </label>
-          <input
-            id="code"
-            inputMode="numeric"
-            autoComplete="one-time-code"
-            value={code}
-            onChange={(e) => setCode(e.target.value)}
-            required
-            className={`mb-6 ${inputClass}`}
-          />
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full rounded-md bg-zinc-900 px-4 py-2 text-white outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-          >
+          <Field>
+            <Label>Code</Label>
+            <Input
+              inputMode="numeric"
+              autoComplete="one-time-code"
+              value={code}
+              onChange={(e) => setCode(e.target.value)}
+              required
+            />
+          </Field>
+          <Button type="submit" disabled={loading} className="mt-6 w-full">
             {loading ? "Verifying..." : "Verify"}
-          </button>
+          </Button>
         </form>
       )}
     </main>

@@ -4,11 +4,15 @@ import Link from "next/link";
 import { useSearchParams } from "next/navigation";
 import { Suspense, useState } from "react";
 
+import { Button } from "@/components/ui/catalyst/button";
+import {
+  Field,
+  Label,
+  Description,
+} from "@/components/ui/catalyst/fieldset";
+import { Input } from "@/components/ui/catalyst/input";
 import { useApi, ApiError } from "@/hooks/useApi";
 import { resetPasswordSchema } from "@/lib/validation";
-
-const inputClass =
-  "block w-full rounded-md border border-zinc-300 px-3 py-2 outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 dark:border-zinc-700 dark:bg-zinc-900";
 
 function ResetPasswordInner() {
   const { fetchApi } = useApi();
@@ -79,36 +83,32 @@ function ResetPasswordInner() {
           {error}
         </div>
       )}
-      <label className="mb-1 block text-sm" htmlFor="new_password">
-        New password
-      </label>
-      <input
-        id="new_password"
-        type="password"
-        value={form.new_password}
-        onChange={update("new_password")}
-        required
-        className={`mb-1 ${inputClass}`}
-      />
-      <p className="mb-4 text-xs text-zinc-500">At least 8 characters.</p>
-      <label className="mb-1 block text-sm" htmlFor="confirm_password">
-        Confirm password
-      </label>
-      <input
-        id="confirm_password"
-        type="password"
-        value={form.confirm_password}
-        onChange={update("confirm_password")}
-        required
-        className={`mb-6 ${inputClass}`}
-      />
-      <button
-        type="submit"
-        disabled={loading}
-        className="w-full rounded-md bg-zinc-900 px-4 py-2 text-white outline-none focus-visible:ring-2 focus-visible:ring-zinc-400 disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-      >
+      <div className="space-y-4">
+        <Field>
+          <Label>New password</Label>
+          <Input
+            type="password"
+            value={form.new_password}
+            onChange={update("new_password")}
+            required
+            autoComplete="new-password"
+          />
+          <Description>At least 8 characters.</Description>
+        </Field>
+        <Field>
+          <Label>Confirm password</Label>
+          <Input
+            type="password"
+            value={form.confirm_password}
+            onChange={update("confirm_password")}
+            required
+            autoComplete="new-password"
+          />
+        </Field>
+      </div>
+      <Button type="submit" disabled={loading} className="mt-6 w-full">
         {loading ? "Resetting…" : "Reset password"}
-      </button>
+      </Button>
     </form>
   );
 }

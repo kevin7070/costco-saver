@@ -1,6 +1,5 @@
 "use client";
 
-import Link from "next/link";
 import { useCallback, useEffect, useState } from "react";
 
 import {
@@ -13,6 +12,7 @@ import {
   type ItemStatus,
   type SortDirection,
 } from "@/components/admin";
+import { Button } from "@/components/ui/catalyst/button";
 import { useApi } from "@/hooks/useApi";
 
 type Item = {
@@ -100,14 +100,7 @@ export default function ItemsListPage() {
           { label: "Dashboard", href: "/dashboard" },
           { label: "Items" },
         ]}
-        actions={
-          <Link
-            href="/dashboard/items/new"
-            className="rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-zinc-900"
-          >
-            New item
-          </Link>
-        }
+        actions={<Button href="/dashboard/items/new">New item</Button>}
       />
 
       {error && (
@@ -145,12 +138,7 @@ export default function ItemsListPage() {
             }
             action={
               !search && (
-                <Link
-                  href="/dashboard/items/new"
-                  className="inline-block rounded-md bg-zinc-900 px-3 py-1.5 text-sm text-white dark:bg-white dark:text-zinc-900"
-                >
-                  New item
-                </Link>
+                <Button href="/dashboard/items/new">New item</Button>
               )
             }
           />

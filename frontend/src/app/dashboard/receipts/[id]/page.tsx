@@ -4,7 +4,13 @@ import { useParams } from "next/navigation";
 import { useCallback, useEffect, useState } from "react";
 
 import { PageHeader } from "@/components/admin";
+import { Button } from "@/components/ui/catalyst/button";
 import { ApiError, useApi } from "@/hooks/useApi";
+
+// Dense inline-edit cells: compact padding for the table layout, but with the same
+// blue accent focus ring as the Catalyst form controls so focus stays visible.
+const cellInput =
+  "rounded border border-zinc-300 px-2 py-1 outline-none focus:border-blue-500 focus:ring-1 focus:ring-blue-500 dark:border-zinc-700 dark:bg-zinc-900";
 
 type LineItem = {
   id?: string;
@@ -191,17 +197,17 @@ export default function ReceiptDetailPage() {
               <div key={i} className="rounded-md border border-zinc-200 p-2 text-sm dark:border-zinc-800">
                 {editable ? (
                   <div className="grid grid-cols-12 items-center gap-2">
-                    <input className="col-span-5 rounded border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900" value={it.raw_name} onChange={(e) => updateItem(i, { raw_name: e.target.value })} placeholder="Name" />
-                    <input className="col-span-3 rounded border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900" value={it.item_number} onChange={(e) => updateItem(i, { item_number: e.target.value })} placeholder="Item #" />
-                    <input className="col-span-2 rounded border border-zinc-300 px-2 py-1 dark:border-zinc-700 dark:bg-zinc-900" value={it.amount ?? ""} onChange={(e) => updateItem(i, { amount: e.target.value })} placeholder="$" />
-                    <select className="col-span-1 rounded border border-zinc-300 px-1 py-1 dark:border-zinc-700 dark:bg-zinc-900" value={it.item_type} onChange={(e) => updateItem(i, { item_type: e.target.value as LineItem["item_type"] })}>
+                    <input className={`col-span-5 ${cellInput}`} value={it.raw_name} onChange={(e) => updateItem(i, { raw_name: e.target.value })} placeholder="Name" />
+                    <input className={`col-span-3 ${cellInput}`} value={it.item_number} onChange={(e) => updateItem(i, { item_number: e.target.value })} placeholder="Item #" />
+                    <input className={`col-span-2 ${cellInput}`} value={it.amount ?? ""} onChange={(e) => updateItem(i, { amount: e.target.value })} placeholder="$" />
+                    <select className={`col-span-1 ${cellInput} px-1`} value={it.item_type} onChange={(e) => updateItem(i, { item_type: e.target.value as LineItem["item_type"] })}>
                       <option value="product">P</option>
                       <option value="service">S</option>
                       <option value="discount">D</option>
                     </select>
-                    <button type="button" onClick={() => removeItem(i)} className="col-span-1 text-red-500" aria-label="Remove">
+                    <Button plain type="button" onClick={() => removeItem(i)} aria-label="Remove" className="col-span-1">
                       ✕
-                    </button>
+                    </Button>
                   </div>
                 ) : (
                   <div className="flex justify-between">
@@ -218,14 +224,9 @@ export default function ReceiptDetailPage() {
 
           {editable && (
             <div className="mt-4">
-              <button
-                type="button"
-                onClick={confirm}
-                disabled={saving}
-                className="rounded-md bg-zinc-900 px-4 py-2 text-sm text-white disabled:opacity-50 dark:bg-white dark:text-zinc-900"
-              >
+              <Button type="button" onClick={confirm} disabled={saving}>
                 {saving ? "Saving…" : "Confirm receipt"}
-              </button>
+              </Button>
             </div>
           )}
           {receipt.parse_status === "confirmed" && (
@@ -255,7 +256,7 @@ function Field({
       <div className="text-xs text-zinc-500">{label}</div>
       {editable ? (
         <input
-          className="mt-0.5 block w-full rounded border border-zinc-300 px-2 py-1 text-sm dark:border-zinc-700 dark:bg-zinc-900"
+          className={`mt-0.5 block w-full text-sm ${cellInput}`}
           value={value}
           onChange={(e) => onChange(e.target.value)}
           placeholder={placeholder}
