@@ -83,7 +83,8 @@ def test_confirm_corrects_and_sets_confirmed(user_client, user):
              "unit_price": "28.99", "amount": "28.99", "item_type": "product", "taxable": False},
         ],
     }
-    resp = user_client.post(f"/api/v1/receipts/{r.id}/confirm/", payload, format="json")
+    with patch("apps.receipts.views.catalog_match_receipt"):
+        resp = user_client.post(f"/api/v1/receipts/{r.id}/confirm/", payload, format="json")
     assert resp.status_code == 200
     r.refresh_from_db()
     assert r.parse_status == Receipt.ParseStatus.CONFIRMED
