@@ -12,7 +12,7 @@ from django.utils import timezone
 from apps.parsers.base import StructuredLineItem, StructuredReceipt
 from apps.receipts.models import LineItem, Receipt
 from apps.receipts.services import apply_parse_result
-from apps.receipts.tasks import purge_expired_receipts
+from apps.receipts.tasks import catalog_match_receipt, purge_expired_receipts
 
 pytestmark = pytest.mark.django_db
 
@@ -262,3 +262,74 @@ def test_delete_keeps_dir_with_other_files(user_client, user, settings, tmp_path
 
     assert os.path.isdir(keep_dir)  # not pruned — still holds `keep`'s file
     assert default_storage.exists(keep.image.name)
+
+
+# ---------------------------------------------------------------------------
+# Catalog matching trigger (Gap #1)
+# ---------------------------------------------------------------------------
+
+
+def test_confirm_triggers_catalog_match(user_client, user):
+    r = Receipt.objects.create(
+        user=user, image="a.jpg", parse_status=Receipt.ParseStatus.NEEDS_REVIEW
+    )
+    payload = {
+        "store_location": "Markham #151",
+        "purchase_date": "2026-06-04",
+        "receipt_number": "R001",
+        "invoice_number": "I001",
+        "line_items": [
+            {
+                "raw_name": "X-LIGHT OIL", "item_number": "142372",
+                "quantity": 1, "unit_price": "28.99", "amount": "28.99",
+                "item_type": "product", "taxable": False,
+            },
+        ],
+    }
+    with patch("apps.receipts.views.catalog_match_receipt") as mock_task:
+        resp = user_client.post(f"/api/v1/receipts/{r.id}/confirm/", payload, format="json")
+    assert resp.status_code == 200
+    mock_task.delay.assert_called_once_with(str(r.id))
+
+
+def test_catalog_match_receipt_matches_pending_items(user):
+    r = Receipt.objects.create(
+        user=user, image="a.jpg", parse_status=Receipt.ParseStatus.CONFIRMED
+    )
+    li = LineItem.objects.create(
+        receipt=r, raw_name="X-LIGHT OIL", item_number="142372", position=0,
+        tracking_status=LineItem.TrackingStatus.PENDING, item_type="product",
+        quantity=1, unit_price=Decimal("28.99"), amount=Decimal("28.99"),
+    )
+    with patch("apps.pricing.tasks.refresh_prices") as mock_refresh:
+        count = catalog_match_receipt(str(r.id))
+    li.refresh_from_db()
+    assert count == 1
+    assert li.tracking_status == LineItem.TrackingStatus.MATCHED
+    assert li.product is not None
+    assert li.product.item_number == "142372"
+    mock_refresh.delay.assert_called_once_with(str(li.product.pk))
+
+
+def test_catalog_match_receipt_missing_receipt_is_noop():
+    count = catalog_match_receipt("00000000-0000-0000-0000-000000000000")
+    assert count == 0
+
+
+def test_catalog_match_receipt_skips_non_pending_items(user):
+    r = Receipt.objects.create(
+        user=user, image="a.jpg", parse_status=Receipt.ParseStatus.CONFIRMED
+    )
+    # SKIPPED (discount) and already MATCHED items must not be re-processed.
+    LineItem.objects.create(
+        receipt=r, raw_name="INSTANT SAVINGS", position=0,
+        tracking_status=LineItem.TrackingStatus.SKIPPED, item_type="discount",
+    )
+    LineItem.objects.create(
+        receipt=r, raw_name="PREV PRODUCT", item_number="999", position=1,
+        tracking_status=LineItem.TrackingStatus.MATCHED, item_type="product",
+    )
+    with patch("apps.pricing.tasks.refresh_prices") as mock_refresh:
+        count = catalog_match_receipt(str(r.id))
+    assert count == 0
+    mock_refresh.delay.assert_not_called()

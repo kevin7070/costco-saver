@@ -10,6 +10,7 @@ from .serializers import (
     ReceiptUploadSerializer,
 )
 from .services import create_receipt
+from .tasks import catalog_match_receipt
 
 
 class ReceiptViewSet(
@@ -53,12 +54,13 @@ class ReceiptViewSet(
 
     @action(detail=True, methods=["post"])
     def confirm(self, request, pk=None):
-        """User-corrected line items + fields → status confirmed."""
+        """User-corrected line items + fields → status confirmed, then catalog matching."""
         receipt = self.get_object()
         serializer = ReceiptReviewSerializer(receipt, data=request.data, partial=True)
         serializer.is_valid(raise_exception=True)
         serializer.save()
         receipt.refresh_from_db()
+        catalog_match_receipt.delay(str(receipt.pk))
         return Response(ReceiptSerializer(receipt).data)
 
     @action(detail=True, methods=["get"])

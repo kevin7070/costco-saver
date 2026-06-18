@@ -13,7 +13,7 @@ from django.utils import timezone
 
 from apps.parsers import get_parser
 
-from .models import Receipt
+from .models import LineItem, Receipt
 from .services import apply_parse_result
 
 logger = logging.getLogger(__name__)
@@ -52,6 +52,51 @@ def parse_receipt(self, receipt_id: str) -> None:
         receipt.parse_error = str(exc)[:500]
         receipt.save(update_fields=["parse_status", "parse_error"])
         raise self.retry(exc=exc)
+
+
+@shared_task(name="apps.receipts.tasks.catalog_match_receipt", acks_late=True)
+def catalog_match_receipt(receipt_id: str) -> int:
+    """Match confirmed receipt line items to tracked Products, then kick off price checks.
+
+    Called after a user confirms a receipt. Only processes PENDING items, so
+    re-runs (e.g. manual admin triggers) are idempotent. Immediately enqueues
+    refresh_prices for each newly matched product instead of waiting for the daily
+    fan-out — first price observation arrives right after matching.
+
+    Returns the number of newly matched items.
+    """
+    # Lazy imports avoid cross-app circular import issues at module load time.
+    from apps.pricing.services import match_line_item_to_product
+    from apps.pricing.tasks import refresh_prices
+
+    try:
+        receipt = Receipt.objects.get(pk=receipt_id)
+    except Receipt.DoesNotExist:
+        logger.warning("catalog_match_receipt: receipt %s not found", receipt_id)
+        return 0
+
+    pending = list(
+        receipt.line_items.filter(tracking_status=LineItem.TrackingStatus.PENDING)
+    )
+    matched = 0
+    for li in pending:
+        try:
+            product = match_line_item_to_product(li)
+        except Exception:
+            logger.exception(
+                "catalog_match_receipt: error matching line item %s (receipt %s)",
+                li.pk, receipt_id,
+            )
+            continue
+        if product is not None:
+            refresh_prices.delay(str(product.pk))
+            matched += 1
+
+    logger.info(
+        "catalog_match_receipt: receipt %s — matched %d/%d pending items",
+        receipt_id, matched, len(pending),
+    )
+    return matched
 
 
 @shared_task(name="apps.receipts.tasks.purge_expired_receipts")
