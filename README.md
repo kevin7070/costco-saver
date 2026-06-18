@@ -5,7 +5,7 @@ while you can still claim the difference.
 
 Create an account and upload a receipt to get started.
 
-> 🚧 Early development (v0.7.0).
+> 🚧 Early development (v0.8.0).
 >
 > 🤝 Maintained by more than one contributor. **Do not commit to `main` directly** —
 > branch off, open a PR, and let CI pass before merge. `main` is protected.
@@ -14,11 +14,11 @@ Create an account and upload a receipt to get started.
 
 - **Receipt capture** — upload a receipt (image or PDF); it is parsed into line
   items for you to review and confirm.
-- **Price tracking** — confirmed products are matched by item number and tracked
-  over time.
+- **Price tracking** — on confirmation, receipt items are automatically matched
+  to products by item number and queued for a price check.
 - **Drop alerts** — when a tracked product's price falls below what you paid, an
-  alert is raised, flagged for whether it is still within the price-adjustment
-  window.
+  alert is raised and displayed in the dashboard, flagged for whether it is still
+  within the price-adjustment window.
 
 Price lookups go through a pluggable provider; the bundled default is a no-op, so
 a real price source is supplied by the deployment environment.
