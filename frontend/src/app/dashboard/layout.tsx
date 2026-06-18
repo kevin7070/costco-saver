@@ -27,6 +27,7 @@ export default function DashboardLayout({
   const { fetchApi } = useApi();
   const [user, setUser] = useState<User | null>(null);
   const [checking, setChecking] = useState(true);
+  const [openAlertCount, setOpenAlertCount] = useState(0);
   const lastRefreshRef = useRef<number>(0);
 
   const refresh = useCallback(async () => {
@@ -68,6 +69,23 @@ export default function DashboardLayout({
     };
   }, [fetchApi, router]);
   /* eslint-enable react-hooks/set-state-in-effect */
+
+  // Open alert count for nav badge — non-fatal if it fails
+  useEffect(() => {
+    if (!user) return;
+    let cancelled = false;
+    (async () => {
+      try {
+        const data = await fetchApi<{ count: number }>("/alerts/?status=open");
+        if (!cancelled) setOpenAlertCount(data.count);
+      } catch {
+        // Badge stays hidden — not worth breaking the layout over
+      }
+    })();
+    return () => {
+      cancelled = true;
+    };
+  }, [user, fetchApi]);
 
   // Interval refresh
   useEffect(() => {
@@ -118,6 +136,17 @@ export default function DashboardLayout({
               className="text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
             >
               Items
+            </Link>
+            <Link
+              href="/dashboard/alerts"
+              className="flex items-center gap-1.5 text-sm text-zinc-600 hover:text-zinc-900 dark:text-zinc-400 dark:hover:text-white"
+            >
+              Alerts
+              {openAlertCount > 0 && (
+                <span className="rounded-full bg-amber-500 px-1.5 py-0.5 text-[10px] font-semibold leading-none text-white">
+                  {openAlertCount}
+                </span>
+              )}
             </Link>
             <Link
               href="/dashboard/security"
