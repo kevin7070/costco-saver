@@ -19,12 +19,12 @@ export default function DashboardPage() {
           </p>
         </Link>
         <Link
-          href="/dashboard/items"
+          href="/dashboard/alerts"
           className="block rounded-lg border border-zinc-200 p-5 hover:border-zinc-400 dark:border-zinc-800 dark:hover:border-zinc-600"
         >
-          <h2 className="font-semibold mb-1">Items</h2>
+          <h2 className="font-semibold mb-1">Price Alerts</h2>
           <p className="text-sm text-zinc-600 dark:text-zinc-400">
-            Sample CRUD domain (wired in PR 3).
+            See when a tracked item drops below what you paid.
           </p>
         </Link>
       </div>
