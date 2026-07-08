@@ -15,10 +15,9 @@ import pytest
 from pytest_factoryboy import register
 from rest_framework.test import APIClient
 
-from .factories import ItemFactory, UserFactory
+from .factories import UserFactory
 
 register(UserFactory)
-register(ItemFactory)
 
 
 @pytest.fixture(autouse=True)

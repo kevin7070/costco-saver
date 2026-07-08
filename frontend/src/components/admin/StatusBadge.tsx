@@ -38,25 +38,3 @@ export function StatusBadge({ variant, children, className }: StatusBadgeProps) 
     </span>
   );
 }
-
-// Domain-specific badge example for items.
-// Each project should add its own domain badges here and
-// call StatusBadge internally — do not use the generic
-// StatusBadge directly in pages.
-
-export type ItemStatus = "active" | "archived";
-
-export function getItemVariant(status: ItemStatus): BadgeVariant {
-  switch (status) {
-    case "active":
-      return "success";
-    case "archived":
-      return "muted";
-    default:
-      return "muted";
-  }
-}
-
-export function ItemStatusBadge({ status }: { status: ItemStatus }) {
-  return <StatusBadge variant={getItemVariant(status)}>{status}</StatusBadge>;
-}
